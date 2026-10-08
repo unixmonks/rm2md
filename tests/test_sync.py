@@ -166,3 +166,27 @@ def test_task_failure_keeps_transcription_and_retries(env, monkeypatch):
     ocr.calls.clear()
     rep, _ = run(cfg, ocr)
     assert ocr.calls == [] and len(rep.tasks_added) == 3
+
+
+def test_broken_diagram_is_repaired_once_and_cached(env):
+    from rmsync.ocr import PageText
+    x, cfg, ocr, tmp = env
+    inbox = x.folder("Inbox")
+    x.notebook("Flow", inbox, [[("t", "a diagram")]])
+    broken = 'flowchart TD\n  A["start] --> B["end"]'
+    ocr.pages[("Flow", 1)] = [("t", "x")]
+    fixes = []
+
+    def mock_ocr(png, **kw):
+        ocr.calls.append((kw["notebook"], kw["page"]))
+        return PageText(markdown=f"# Flow\n\n```mermaid\n{broken}\n```", tasks=[])
+
+    def fixer(code, err, **kw):
+        fixes.append(err)
+        return 'flowchart TD\n  A["start"] --> B["end"]'
+
+    Syncer(cfg, transcriber=mock_ocr, diagram_fixer=fixer, log=lambda s: None).run()
+    md = (cfg.notes_dir / "Flow.md").read_text()
+    assert len(fixes) == 1 and '```mermaid\nflowchart TD\n  A["start"] --> B["end"]\n```' in md
+    Syncer(cfg, transcriber=mock_ocr, diagram_fixer=fixer, log=lambda s: None).run(full=True)
+    assert len(fixes) == 1 and len(ocr.calls) == 1  # repaired text was stored with the page

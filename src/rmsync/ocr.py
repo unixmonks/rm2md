@@ -12,6 +12,8 @@ import urllib.request
 from dataclasses import dataclass, field
 
 API_URL = os.environ.get("RMSYNC_API_URL", "https://openrouter.ai/api/v1/chat/completions")
+# Part of the transcription cache key: bump when the prompt changes what comes back.
+PROMPT_VERSION = 2
 
 PROMPT = """You transcribe a handwritten page from a reMarkable tablet notebook.
 Today is {today} ({weekday}). Notebook: "{notebook}", page {page}.
@@ -20,9 +22,23 @@ Return JSON only, with these fields:
 
 "markdown": the page as clean Markdown. Keep the writer's words; fix only obvious letter-level
 misreads. Use headings for underlined or large titles, lists for bullet points, "- [ ]" / "- [x]"
-for task lines (below). Drawings, arrows and diagrams: describe briefly in italics, e.g.
-"*[sketch: box labelled API pointing to DB]*". Do not add commentary or anything not on the page.
-Write a word you cannot read as [?].
+for task lines (below). Do not add commentary or anything not on the page. Write a word you cannot
+read as [?].
+Flowcharts, box-and-arrow diagrams, process diagrams, trees and mind maps: write them as a Mermaid
+block, placed where the diagram is on the page:
+```mermaid
+flowchart TD
+  A["Start"] --> B{{"Is it ready?"}}
+  B -->|"yes"| C["Ship it"]
+  B -->|"no"| A
+```
+Rules: use flowchart TD (top to bottom) or flowchart LR (left to right), whichever matches the
+drawing. Short ids (A, B, C...). Every label in double quotes, with the writer's words: A["text"]
+box, B{{"text"}} diamond, C("text") rounded box, D(("text")) circle. Arrows -->, lines ---, dashed
+arrows -.->, arrow text -->|"text"|. Never put a double quote inside a label (use '). No styles,
+classes, comments or subgraphs. Text written inside diagram shapes is never a task.
+Other drawings (pictures, doodles, charts): describe briefly in italics, e.g. "*[sketch: a house
+with a tree]*".
 
 "tasks": one entry per task on the page, in page order. A line is a task when it starts with a
 hand-drawn checkbox (a small square or circle), or with "TODO", "todo:" or "[ ]"; also every item
@@ -164,6 +180,16 @@ def transcribe(png: bytes, *, api_key: str, model: str, notebook: str, page: int
     }
     if reasoning:
         body["reasoning"] = {"effort": reasoning}
+    text = _chat(body, api_key, retries, timeout)
+    try:
+        return parse_reply(_extract_json(text))
+    except (json.JSONDecodeError, ValueError, AttributeError) as e:
+        raise OcrError(f"{model}: reply was not the expected JSON ({e})")
+
+
+def _chat(body: dict, api_key: str, retries: int = 3, timeout: int = 120) -> str:
+    """POSTs a chat request and returns the reply text, retrying network and server errors."""
+    model = body.get("model", "")
     req_data = json.dumps(body).encode()
     last = None
     for attempt in range(retries):
@@ -179,7 +205,7 @@ def transcribe(png: bytes, *, api_key: str, model: str, notebook: str, page: int
             content = reply["choices"][0]["message"]["content"]
             if isinstance(content, list):
                 content = "".join(c.get("text", "") for c in content if isinstance(c, dict))
-            return parse_reply(_extract_json(content or ""))
+            return content or ""
         except urllib.error.HTTPError as e:
             detail = e.read().decode(errors="replace")[:300]
             last = OcrError(f"{model}: HTTP {e.code} {detail}")
@@ -187,7 +213,27 @@ def transcribe(png: bytes, *, api_key: str, model: str, notebook: str, page: int
                 raise last
         except (urllib.error.URLError, TimeoutError, OSError) as e:
             last = OcrError(f"{model}: {e}")
-        except (KeyError, IndexError, json.JSONDecodeError, TypeError) as e:
+        except (KeyError, IndexError, TypeError) as e:
             last = OcrError(f"{model}: unexpected reply ({e})")
         time.sleep(2 * (attempt + 1))
     raise last or OcrError("failed")
+
+
+FIX_PROMPT = """This Mermaid diagram does not parse. Fix the syntax only; keep every node, label and
+arrow. Labels in double quotes, no double quotes inside labels, no styles or comments.
+Reply with the corrected diagram only, no code fence.
+
+Error:
+{error}
+
+Diagram:
+{code}"""
+
+
+def fix_mermaid(code: str, error: str, *, api_key: str, model: str, reasoning: str = "low") -> str:
+    body = {"model": model, "temperature": 0,
+            "messages": [{"role": "user", "content": FIX_PROMPT.format(error=error[:800], code=code)}]}
+    if reasoning:
+        body["reasoning"] = {"effort": reasoning}
+    text = _chat(body, api_key).strip()
+    return re.sub(r"^```(?:mermaid)?\s*|\s*```$", "", text).strip()

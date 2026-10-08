@@ -13,9 +13,9 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Callable
 
-from . import library, notes, tasks
+from . import library, mermaid, notes, tasks
 from .config import Config
-from .ocr import OcrError, PageText, TaskItem, transcribe
+from .ocr import PROMPT_VERSION, OcrError, PageText, TaskItem, fix_mermaid, transcribe
 from .render import render
 from .tablet import Tablet
 
@@ -88,10 +88,12 @@ Transcriber = Callable[..., PageText]
 
 class Syncer:
     def __init__(self, cfg: Config, *, tablet: Tablet | None = None, transcriber: Transcriber = transcribe,
+                 diagram_fixer: Callable[..., str] | None = fix_mermaid,
                  log: Callable[[str], None] = print, dry_run: bool = False):
         self.cfg = cfg
         self.tablet = tablet or Tablet(cfg.host, cfg.xochitl_dir, cfg.ssh_options)
         self.transcribe = transcriber
+        self.fix_diagram = diagram_fixer
         self.log = log
         self.dry_run = dry_run
         self.cache = cfg.cache_dir / "xochitl"
@@ -227,7 +229,7 @@ class Syncer:
         if not key:
             rep.pages_failed.append(f"{label} p{n}")
             return {"hash": h, "error": "no OpenRouter API key"}
-        cached = self.cfg.cache_dir / "ocr" / f"{h}-{re.sub(r'[^\w.-]', '_', self.cfg.model)}.json"
+        cached = self.cfg.cache_dir / "ocr" / f"{h}-{re.sub(r'[^\w.-]', '_', self.cfg.model)}-v{PROMPT_VERSION}.json"
         try:  # a dry run, or a run that failed later, already paid for this page
             return {**json.loads(cached.read_text()), "hash": h}
         except (OSError, json.JSONDecodeError):
@@ -240,6 +242,11 @@ class Syncer:
             rep.pages_failed.append(f"{label} p{n}")
             return {"hash": h, "error": str(e)[:200]}
         rep.pages_transcribed += 1
+        fixer = None
+        if self.fix_diagram:
+            def fixer(code: str, err: str) -> str:
+                return self.fix_diagram(code, err, api_key=key, model=self.cfg.model, reasoning=self.cfg.reasoning)
+        res.markdown = mermaid.repair(res.markdown, fixer, self.log)
         entry = {"hash": h, "markdown": res.markdown, "title": res.title, "confidence": res.confidence,
                  "tasks": [t.__dict__ for t in res.tasks], "model": self.cfg.model}
         cached.parent.mkdir(parents=True, exist_ok=True)

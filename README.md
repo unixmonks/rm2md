@@ -3,11 +3,39 @@
 Syncs one folder of reMarkable notebooks to this computer over SSH (Wi-Fi or USB):
 
 - each notebook becomes a Markdown file, transcribed from your handwriting by a vision model
-  (OpenRouter, `google/gemini-3.8-flash` by default), with a PNG of each page linked under its text;
+  (OpenRouter, `google/gemini-3.8-flash` by default, about $0.002 a page), with a PNG of each page
+  linked under its text; flowcharts become Mermaid diagrams;
 - task lines become Taskwarrior tasks. Ticking the box later completes the task.
 
 Only pages that changed since the last sync are sent to the model. Typed text (keyboard) is read
 straight from the page file, so typed-only pages cost nothing.
+
+## Drawings and diagrams
+
+Flowcharts and box-and-arrow diagrams become [Mermaid](https://mermaid.js.org) blocks, which
+Obsidian, GitHub and most Markdown viewers draw as diagrams:
+
+````markdown
+```mermaid
+flowchart TD
+  A["write code"] --> B["run tests"]
+  B --> C{"pass?"}
+  C -->|"no"| D["fix"]
+  D --> B
+  C -->|"yes"| E(("deploy"))
+```
+````
+
+Boxes, diamonds, circles, arrow labels and loops are kept, and the direction (top-down or
+left-to-right) follows your drawing. Words inside diagram shapes never become tasks. Other drawings
+get a one-line description, e.g. `*[sketch: a cabin with a door, and the sun]*`; the page image
+below the text always shows the original.
+
+Each diagram is checked before it is written: by Mermaid itself when `mmdc`
+([mermaid-cli](https://github.com/mermaid-js/mermaid-cli)) is installed, otherwise by a simpler
+syntax check. A diagram that does not parse is sent back to the model once with the error (text
+only, a fraction of a cent); if it still fails it is kept as plain text under
+`*[diagram; see the page image]*`, so a note never holds a broken diagram.
 
 ## Writing tasks
 

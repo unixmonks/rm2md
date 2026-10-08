@@ -50,12 +50,48 @@ def _box(x, baseline, rnd, done):
     return out
 
 
+def _shape(kind, cx, cy, w, h, rnd):
+    if kind == "diamond":
+        pts = [(cx, cy - h / 2), (cx + w / 2, cy), (cx, cy + h / 2), (cx - w / 2, cy), (cx, cy - h / 2 + 2)]
+    elif kind == "circle":
+        pts = [(cx + w / 2 * math.cos(a / 48 * 2 * math.pi), cy + h / 2 * math.sin(a / 48 * 2 * math.pi)) for a in range(51)]
+    else:
+        x0, y0, x1, y1 = cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2
+        pts = [(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0 + 2)]
+    return [_jitter(_densify(pts), rnd, 1.5)]
+
+
+def _arrow(x0, y0, x1, y1, rnd):
+    a = math.atan2(y1 - y0, x1 - x0)
+    head = [(x1 - 22 * math.cos(a - 0.45), y1 - 22 * math.sin(a - 0.45)), (x1, y1),
+            (x1 - 22 * math.cos(a + 0.45), y1 - 22 * math.sin(a + 0.45))]
+    return [_jitter(_densify([(x0, y0), (x1, y1)]), rnd, 1.0), _jitter(_densify(head), rnd, 1.0)]
+
+
 def page_strokes(lines, seed=1):
-    """lines: list of ("h", text) heading (underlined), ("t", text) text, ("task", text, done), ("gap",)."""
+    """lines: list of ("h", text) heading (underlined), ("t", text) text, ("task", text, done), ("gap",),
+    and drawn shapes at absolute positions that do not move the line cursor:
+    ("node", kind, cx, cy, w, h, text) with kind box/diamond/circle, ("arrow", x0, y0, x1, y1[, label]),
+    ("at", y) to move the cursor."""
     rnd = random.Random(seed)
     strokes, y = [], 160.0
     for ln in lines:
         kind = ln[0]
+        if kind == "node":
+            _, shape, cx, cy, w, h, text = ln
+            strokes += _shape(shape, cx, cy, w, h, rnd)
+            size = 34.0
+            tw = len(text) * size * 0.52
+            strokes += _text(text, cx - tw / 2, cy + size / 3, rnd, size)
+            continue
+        if kind == "arrow":
+            strokes += _arrow(*ln[1:5], rnd)
+            if len(ln) > 5:
+                strokes += _text(ln[5], (ln[1] + ln[3]) / 2 + 12, (ln[2] + ln[4]) / 2, rnd, 30)
+            continue
+        if kind == "at":
+            y = ln[1]
+            continue
         if kind == "gap":
             y += 60
             continue
