@@ -3,6 +3,8 @@ name = "rm2md"
 version = "0.1.0"
 description = "Sync a reMarkable folder to Markdown notes and Taskwarrior tasks over SSH"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "g", email = "g@magnetic.sh" }
 ]

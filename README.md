@@ -234,3 +234,8 @@ tests/fake_tablet_ssh.sh                 # sync over real SSH from a busybox/dro
 RM2MD_LIVE=1 tests/fake_tablet_ssh.sh   # the same with the live model, on generated handwriting
 uv run python docs/make_images.py        # rebuild the pictures above from a demo page
 ```
+
+## License
+
+[MIT](LICENSE). The test page files in `tests/fixtures` come from
+[rmscene](https://github.com/ricklupton/rmscene), also MIT.
