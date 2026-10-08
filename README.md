@@ -3,8 +3,12 @@
 Write on your reMarkable. rm2md turns the pages into Markdown notes and, if you like, the to-dos
 into [Taskwarrior](https://taskwarrior.org) tasks.
 
-Sponsored by **[Margin](https://marginpaper.com)**, which makes hyperlinked PDF planners, journals
-and templates for reMarkable and other e-ink tablets.
+Sponsored by:
+
+- **[Margin](https://marginpaper.com)**: hyperlinked PDF planners, journals and templates for
+  reMarkable and other e-ink tablets.
+- **[taskwarriorsync](https://taskwarriorsync.com)**: hosted sync for Taskwarrior 3, with your tasks
+  encrypted on your machine before upload.
 
 ![A handwritten reMarkable page and the Markdown note rm2md made from it](docs/images/before-after.png)
 
