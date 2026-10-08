@@ -119,3 +119,16 @@ def test_note_rendering():
     assert notes.demote("### TODO\n- x\n#### sub") == "### TODO\n- x\n#### sub"
     assert notes.demote("# A\n## B") == "### A\n#### B"
     assert notes.demote("# A\n### C") == "### A\n#### C"
+
+
+def test_init_no_tasks_writes_tasks_false(tmp_path, monkeypatch, capsys):
+    import rm2md
+    from rm2md import config as config_mod
+    path = tmp_path / "config.toml"
+    monkeypatch.setattr(config_mod, "CONFIG_PATH", path)
+    (tmp_path / "x").mkdir()
+    rm2md.main(["init", "--host", f"dir:{tmp_path / 'x'}", "--folder", "Inbox", "--no-tasks"])
+    assert "tasks = false" in path.read_text() and config_mod.load(path).tasks is False
+    assert "tasks: off (notes only)" in capsys.readouterr().out
+    rm2md.main(["init", "--force", "--host", f"dir:{tmp_path / 'x'}"])
+    assert config_mod.load(path).tasks is True

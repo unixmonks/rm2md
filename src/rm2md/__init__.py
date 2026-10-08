@@ -51,11 +51,15 @@ def cmd_init(a, cfg) -> int:
         print(f"{path} exists (use --force to overwrite)")
     else:
         config_mod.write_template(path, a.host or cfg.host, a.folder or cfg.folder,
-                                  a.notes_dir or str(cfg.notes_dir).replace(str(Path.home()), "~"), cfg.api_key_file)
+                                  a.notes_dir or str(cfg.notes_dir).replace(str(Path.home()), "~"), cfg.api_key_file,
+                                  tasks=not a.no_tasks)
         print(f"wrote {path}")
         cfg = config_mod.load(path)
     print(f"key: {'found' if cfg.api_key() else 'MISSING — set OPENROUTER_API_KEY or ' + str(cfg.api_key_file)}")
-    print(f"task: {'found' if tasks.available() else 'MISSING'}")
+    if not cfg.tasks:
+        print("tasks: off (notes only)")
+    else:
+        print(f"tasks: {'on, Taskwarrior found' if tasks.available() else 'on, but Taskwarrior (task) is MISSING — install it, or set tasks = false'}")
     return cmd_check(a, cfg)
 
 
@@ -152,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
     sub = p.add_subparsers(dest="cmd", required=True)
     i = sub.add_parser("init", help="write a config file and test the connection")
     i.add_argument("--host"); i.add_argument("--folder"); i.add_argument("--notes-dir"); i.add_argument("--force", action="store_true")
+    i.add_argument("--no-tasks", action="store_true", help="notes only: write tasks = false")
     sub.add_parser("check", help="test the connection and the folder")
     sub.add_parser("folders", help="list the folders on the tablet")
     s = sub.add_parser("sync", help="sync once")
@@ -160,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("--notebook", help="only this notebook (name or id)")
     s.add_argument("--retranscribe", action="store_true",
                    help="send every page to the model again (after changing model or prompt)")
-    s.add_argument("--no-tasks", action="store_true", help="notes only")
+    s.add_argument("--no-tasks", action="store_true", help="notes only, this time (see tasks in the config)")
     s.add_argument("-q", "--quiet", action="store_true", help="print only changes and errors")
     w = sub.add_parser("watch", help="sync every few minutes while the tablet is reachable")
     w.add_argument("--interval", type=int, default=300, help="seconds between syncs (default 300)")

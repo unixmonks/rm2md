@@ -202,3 +202,44 @@ def test_retranscribe_sends_pages_again_without_duplicating_tasks(env):
     rep, _ = run(cfg, ocr, retranscribe=True)
     assert sorted(ocr.calls) == [("Meeting notes", 1), ("Meeting notes", 2)]
     assert rep.tasks_added == [] and len(tw()) == 3
+
+
+def _no_taskwarrior(monkeypatch):
+    import rm2md.tasks as t
+
+    def boom(*a, **k):
+        raise AssertionError("Taskwarrior was called")
+
+    monkeypatch.setattr(t, "_task", boom)
+
+
+def test_tasks_off_never_touches_taskwarrior_and_turning_on_later_catches_up(env, monkeypatch):
+    x, cfg, ocr, tmp = env
+    setup_inbox(x, ocr)
+    cfg.tasks = False
+    real = __import__("rm2md.tasks", fromlist=["_task"])._task
+    _no_taskwarrior(monkeypatch)
+    rep, _ = run(cfg, ocr)
+    assert rep.tasks_added == [] and "- [ ] email Dana the slides" in (cfg.notes_dir / "Meeting notes.md").read_text()
+    monkeypatch.setattr("rm2md.tasks._task", real)
+    cfg.tasks = True
+    ocr.calls.clear()
+    rep, _ = run(cfg, ocr)
+    assert rep.tasks_added == []  # nothing changed on the tablet: no catch-up without --full
+    rep, _ = run(cfg, ocr, full=True)
+    assert ocr.calls == [] and sorted(rep.tasks_added) == ["book flights", "email Dana the slides", "renew passport"]
+
+
+def test_taskwarrior_missing_writes_notes_and_says_so_once(env, monkeypatch):
+    x, cfg, ocr, tmp = env
+    inbox, _, _ = setup_inbox(x, ocr)
+    x.notebook("Second", inbox, [P2])
+    ocr.pages[("Second", 1)] = P2
+    monkeypatch.setattr("rm2md.tasks.available", lambda: False)
+    _no_taskwarrior(monkeypatch)
+    rep, logs = run(cfg, ocr)
+    assert (cfg.notes_dir / "Meeting notes.md").exists() and not rep.pages_failed
+    assert sum("Taskwarrior (task) is not installed" in l for l in logs) == 1
+    ocr.calls.clear()
+    rep, _ = run(cfg, ocr)
+    assert rep.docs_changed == [] and ocr.calls == []  # no retry loop

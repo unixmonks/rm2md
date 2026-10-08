@@ -104,6 +104,7 @@ class Syncer:
         self.cache = cfg.cache_dir / "xochitl"
         self.state = State(cfg.state_dir / "state.json")
         self.retranscribe = False
+        self._have_task: bool | None = None
 
     # -- main entry ---------------------------------------------------------------------------
     def run(self, full: bool = False, only: str | None = None, retranscribe: bool = False) -> Report:
@@ -207,7 +208,7 @@ class Syncer:
 
         st.update(name=d.name, subpath=list(d.subpath), last_modified=d.last_modified, pages=new_pages,
                   md_path=str(md_path))
-        if self.cfg.tasks:
+        if self.cfg.tasks and self._taskwarrior_ok():
             self._reconcile_tasks(st, page_tasks, d.name, page_ids, rep)
         text = notes.render_note(name=d.name, uuid=d.uuid, source="/".join((source_root, *d.subpath)),
                                  last_modified=d.last_modified, pages=pages_out,
@@ -263,6 +264,14 @@ class Syncer:
         return entry
 
     # -- tasks --------------------------------------------------------------------------------
+    def _taskwarrior_ok(self) -> bool:
+        if self._have_task is None:
+            self._have_task = tasks.available()
+            if not self._have_task:
+                self.log("Taskwarrior (task) is not installed: notes written, tasks skipped. Install it and run "
+                         "`rm2md sync --full`, or set tasks = false in the config.")
+        return self._have_task
+
     def _reconcile_tasks(self, st: dict, found: list[tuple[str, TaskItem]], name: str, page_ids: list[str],
                          rep: Report) -> None:
         """New task lines become tasks; a box ticked later completes its task. Tasks are never

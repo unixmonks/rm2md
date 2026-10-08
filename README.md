@@ -1,7 +1,7 @@
 # rm2md
 
-Write on your reMarkable. rm2md turns the pages into Markdown notes and the to-dos into
-[Taskwarrior](https://taskwarrior.org) tasks.
+Write on your reMarkable. rm2md turns the pages into Markdown notes and, if you like, the to-dos
+into [Taskwarrior](https://taskwarrior.org) tasks.
 
 Sponsored by **[Margin](https://marginpaper.com)**, which makes hyperlinked PDF planners, journals
 and templates for reMarkable and other e-ink tablets.
@@ -33,8 +33,9 @@ sync completes it in Taskwarrior.
 
 - **Handwriting to Markdown.** Headings, lists and paragraphs, with a picture of each page under
   its text so you can always check the original.
-- **To-dos to Taskwarrior.** Due and scheduled dates, tags, projects and priorities written on the
-  line. Each task is annotated with the notebook and page it came from.
+- **To-dos to Taskwarrior (optional).** Due and scheduled dates, tags, projects and priorities written
+  on the line. Each task is annotated with the notebook and page it came from. Turn it off with
+  `tasks = false` and rm2md only writes notes.
 - **Diagrams to Mermaid.** Flowcharts and box-and-arrow sketches become
   [Mermaid](https://mermaid.js.org) diagrams, which GitHub and Obsidian draw. Other drawings get a
   one-line description.
@@ -77,7 +78,7 @@ You need:
 - a reMarkable with SSH access. Tested on a reMarkable 2. The Paper Pro should work but hasn't
   been tried.
 - Python 3.12+ and [uv](https://docs.astral.sh/uv/)
-- Taskwarrior 3
+- Taskwarrior 3, only if you want tasks
 - an [OpenRouter](https://openrouter.ai) API key
 - optional: [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) (`mmdc`), to check diagrams
   with Mermaid itself
@@ -95,7 +96,7 @@ You need:
    ```sh
    uv tool install git+https://github.com/unixmonks/rm2md
    mkdir -p ~/.config/rm2md && (umask 077; cat > ~/.config/rm2md/openrouter_key)   # paste the key, then Ctrl-D
-   rm2md init --host root@<tablet-ip> --folder "Notes"   # writes the config and tests the connection
+   rm2md init --host root@<tablet-ip> --folder "Notes"   # writes the config and tests it (--no-tasks for notes only)
    rm2md folders                                          # lists the folders, if unsure of the name
    rm2md sync -n                                          # preview: reads the pages, writes nothing
    rm2md sync
@@ -103,6 +104,16 @@ You need:
    The key can also come from `$OPENROUTER_API_KEY`.
 
 Give the tablet a fixed address in your router (a DHCP reservation), so `host` stays right.
+
+## Notes only
+
+To use rm2md without Taskwarrior, set `tasks = false` in the config, or start with
+`rm2md init --no-tasks`. Task lines still appear in the notes as checkboxes; nothing is sent to
+Taskwarrior, and it need not be installed. `rm2md sync --no-tasks` does the same for one run.
+
+If `tasks` is on but Taskwarrior is not installed, rm2md writes the notes and says once that it
+skipped the tasks. To turn tasks on later, set `tasks = true` and run `rm2md sync --full` once:
+it adds the tasks from notes already synced, without sending any page to the model again.
 
 ## Syncing automatically
 
@@ -118,7 +129,8 @@ is asleep or away, and catch up when it is back.
 ## Commands
 
 ```
-rm2md init [--host H] [--folder F] [--notes-dir D] [--force]   write the config, test it
+rm2md init [--host H] [--folder F] [--notes-dir D] [--no-tasks] [--force]
+                                write the config and test it
 rm2md check                    test the connection and the folder
 rm2md folders                  list the tablet's folders, with notebook counts
 rm2md sync                     sync once
@@ -148,7 +160,7 @@ the folder is wrong, and 2 when the tablet cannot be reached.
 | `page_images` | `true`                     | save a picture of each page under its text          |
 | `model`       | `google/gemini-3.8-flash`  | any OpenRouter vision model                         |
 | `reasoning`   | `low`                      | model effort: `low` is about $0.002 and 4 s a page  |
-| `tasks`       | `true`                     | create Taskwarrior tasks                            |
+| `tasks`       | `true`                     | create Taskwarrior tasks; `false` for notes only    |
 | `task_tags`   | `["remarkable"]`           | tags added to every task                            |
 | `task_project`| `""`                       | project for tasks that don't name one               |
 | `task_sync`   | `false`                    | run `task sync` after adding or completing tasks    |

@@ -40,8 +40,10 @@ reasoning = "low"
 # The key is read from $OPENROUTER_API_KEY, or else from this file.
 api_key_file = "{key_file}"
 
-# Taskwarrior
-tasks = true
+# Taskwarrior (optional). With tasks = false rm2md only writes notes, and Taskwarrior
+# need not be installed. Turning it on later: run `rm2md sync --full` once to add the
+# tasks from notes already synced.
+tasks = {tasks}
 task_tags = ["remarkable"]
 # Project for tasks that do not name one ("" for none).
 task_project = ""
@@ -97,6 +99,7 @@ def load(path: Path = CONFIG_PATH) -> Config:
     return cfg
 
 
-def write_template(path: Path, host: str, folder: str, notes_dir: str, key_file: Path) -> None:
+def write_template(path: Path, host: str, folder: str, notes_dir: str, key_file: Path, tasks: bool = True) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(TEMPLATE.format(host=host, folder=folder, notes_dir=notes_dir, key_file=key_file))
+    path.write_text(TEMPLATE.format(host=host, folder=folder, notes_dir=notes_dir, key_file=key_file,
+                                    tasks=str(tasks).lower()))
