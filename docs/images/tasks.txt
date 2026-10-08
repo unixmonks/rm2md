@@ -1,0 +1,14 @@
+ID St UUID     Age   Done Tags Sch  Due        Description
+-- -- -------- ----- ---- ---- ---- ---------- --------------------------------------------
+35 P  a2c2b6fc 12min       [1]                 fix remarkable SSH connection
+                                                 2026-10-07 reMarkable: Notebook 10, page 1
+36 P  43b3d429 12min       [2]                 do the job
+                                                 2026-10-07 reMarkable: Notebook 10, page 1
+37 P  9ba7e10b 12min       [1]      2026-10-08 get car serviced
+                                                 2026-10-07 reMarkable: Notebook 10, page 1
+38 P  aabf02dd 12min       [1] 2h              pay bill
+                                                 2026-10-07 reMarkable: Notebook 10, page 1
+ - C  62c7bf82  1h   1h    [1]      2026-10-08 get kids
+                                                 2026-10-07 reMarkable: Notebook 10, page 1
+ - C  7054116d  1h   1h    [1]      2026-10-12 do laundry
+                                                 2026-10-07 reMarkable: Notebook 10, page 1

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 API_URL = os.environ.get("RMSYNC_API_URL", "https://openrouter.ai/api/v1/chat/completions")
 # Part of the transcription cache key: bump when the prompt changes what comes back.
-PROMPT_VERSION = 3
+PROMPT_VERSION = 4
 
 PROMPT = """You transcribe a handwritten page from a reMarkable tablet notebook.
 Today is {today} ({weekday}). Notebook: "{notebook}", page {page}.
@@ -22,8 +22,9 @@ Return JSON only, with these fields:
 
 "markdown": the page as clean Markdown. Keep the writer's words; fix only obvious letter-level
 misreads. Use headings for underlined or large titles, lists for bullet points, "- [ ]" / "- [x]"
-for task lines (below). Do not add commentary or anything not on the page. Write a word you cannot
-read as [?].
+for task lines (below). Write each word once. A crossed-out task is written once, wholly inside
+~~ ~~, even if the line only crosses part of it. Do not add commentary or anything not on the
+page. Write a word you cannot read as [?].
 Flowcharts, box-and-arrow diagrams, process diagrams, trees and mind maps: write them as a Mermaid
 block, placed where the diagram is on the page:
 ```mermaid

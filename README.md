@@ -1,126 +1,187 @@
 # rmsync
 
-Syncs one folder of reMarkable notebooks to this computer over SSH (Wi-Fi or USB):
+Write on your reMarkable. rmsync turns the pages into Markdown notes and the to-dos into
+[Taskwarrior](https://taskwarrior.org) tasks.
 
-- each notebook becomes a Markdown file, transcribed from your handwriting by a vision model
-  (OpenRouter, `google/gemini-3.8-flash` by default, about $0.002 a page), with a PNG of each page
-  linked under its text; flowcharts become Mermaid diagrams;
-- task lines become Taskwarrior tasks. Ticking the box later completes the task.
+![A handwritten reMarkable page and the Markdown note rmsync made from it](docs/images/before-after.png)
 
-Only pages that changed since the last sync are sent to the model. Typed text (keyboard) is read
-straight from the page file, so typed-only pages cost nothing.
+*Left: a page from the tablet. Right: the note rmsync wrote, shown as GitHub renders it, with the
+sketch turned into a diagram ([raw Markdown](docs/images/after.md)).*
 
-## Drawings and diagrams
+rmsync syncs one folder of notebooks from the tablet over SSH (Wi-Fi or USB). A vision model reads
+the handwriting through [OpenRouter](https://openrouter.ai), and each notebook becomes one Markdown
+file. The same page also gave these tasks:
 
-Flowcharts and box-and-arrow diagrams become [Mermaid](https://mermaid.js.org) blocks, which
-Obsidian, GitHub and most Markdown viewers draw as diagrams:
-
-````markdown
-```mermaid
-flowchart TD
-  A["write code"] --> B["run tests"]
-  B --> C{"pass?"}
-  C -->|"no"| D["fix"]
-  D --> B
-  C -->|"yes"| E(("deploy"))
 ```
-````
+Status     Description                     Due     Scheduled  Tags
+pending    fix remarkable SSH connection                      remarkable
+pending    do the job                                         job remarkable
+pending    get car serviced                Oct 8              remarkable
+pending    pay bill                                Oct 8      remarkable
+completed  get kids                        Oct 8              remarkable
+completed  do laundry                      Oct 12             remarkable
+```
 
-Boxes, diamonds, circles, arrow labels and loops are kept, and the direction (top-down or
-left-to-right) follows your drawing. Words inside diagram shapes never become tasks. Other drawings
-get a one-line description, e.g. `*[sketch: a cabin with a door, and the sun]*`; the page image
-below the text always shows the original.
+"(due tomorrow)" became a due date, "(scheduled tomorrow)" a scheduled date and `+job` a tag. The
+two crossed-out lines were added as already completed. Cross out or tick a task later and the next
+sync completes it in Taskwarrior.
 
-Each diagram is checked before it is written: by Mermaid itself when `mmdc`
-([mermaid-cli](https://github.com/mermaid-js/mermaid-cli)) is installed, otherwise by a simpler
-syntax check. A diagram that does not parse is sent back to the model once with the error (text
-only, a fraction of a cent); if it still fails it is kept as plain text under
-`*[diagram; see the page image]*`, so a note never holds a broken diagram.
+## Features
 
-## Writing tasks
+- **Handwriting to Markdown.** Headings, lists and paragraphs, with a picture of each page under
+  its text so you can always check the original.
+- **To-dos to Taskwarrior.** Due and scheduled dates, tags, projects and priorities written on the
+  line. Each task is annotated with the notebook and page it came from.
+- **Diagrams to Mermaid.** Flowcharts and box-and-arrow sketches become
+  [Mermaid](https://mermaid.js.org) diagrams, which GitHub and Obsidian draw. Other drawings get a
+  one-line description.
+- **Cheap.** About $0.002 a page with the default model. Only pages that changed are sent, and
+  typed (keyboard) text is read straight from the file at no cost.
+- **Safe with your tasks.** rmsync only adds tasks and completes them. It never edits or deletes
+  one, and a task you delete in Taskwarrior is not created again.
 
-A line is a task when it starts with a **hand-drawn box** (□), or with `TODO`, `todo:` or `[ ]`,
-or when it is listed under a `TODO` / `Tasks` heading. Other bullet points are notes, not tasks. On a task line you can add:
+## Writing on the tablet
 
-| write                                | becomes                          |
-|--------------------------------------|----------------------------------|
-| ☑ (tick, cross, fill, strike-through) | completed                       |
-| `#word` or `+word`                   | tag                              |
-| `@word`, `pro:word`                  | project                          |
-| `due fri`, `by 10/15`, `→ mon`       | due date (month/day)             |
-| `scheduled tomorrow`, `start mon`    | scheduled date                   |
-| `!` · `(A)` / `(B)` / `(C)`          | priority H · H / M / L           |
+A line is a **task** when it starts with a hand-drawn box □, or with `TODO`, `todo:` or `[ ]`, or
+sits in a list under a `TODO` or `Tasks` heading. Other bullet points stay notes.
 
-A task is done only when its own line is struck through or its own box is ticked; `*`, `•` and
-`-` bullets are never boxes. Markers are taken out of the task text, so "pay bill (due fri)"
-becomes the task "pay bill" with a due date.
+On a task line you can write:
 
-Every task also gets the tags in `task_tags` (default `+remarkable`) and an annotation naming the
-notebook and page. rmsync never edits or deletes tasks: a task you delete in Taskwarrior is not
-created again, and editing its text on the page does not create a duplicate (similar lines match).
+| write                                    | becomes                        |
+|------------------------------------------|--------------------------------|
+| a tick, cross or fill in the box, or a strike-through | completed         |
+| `due fri`, `by 10/15`, `→ mon`           | due date (dates are month/day) |
+| `scheduled tomorrow`, `start mon`        | scheduled date                 |
+| `#word` or `+word`                       | tag                            |
+| `@word` or `pro:word`                    | project                        |
+| `!` or `(A)` · `(B)` · `(C)`             | priority H · M · L             |
+
+These markers are taken out of the task text: "pay bill (due fri)" becomes the task "pay bill"
+due Friday. A task counts as done only when its own line is crossed out or its own box ticked.
+`*`, `•` and `-` bullets are never boxes.
+
+For a **diagram**, draw boxes, diamonds or circles with words in them and connect them with arrows.
+Words on an arrow become its label. rmsync keeps the direction you drew (top-down or left-to-right).
+Words inside shapes never become tasks.
+
+The tablet saves a page when you close its notebook. Close it, or go back to the library, before
+a sync.
 
 ## Setup
 
-1. On the tablet, find the IP and root password under *Settings → Help → Copyrights and licenses*.
-   SSH over Wi-Fi must be on; on recent firmware that may need `rm-ssh-over-wlan on`, run over USB SSH.
-2. Install your key: `ssh-copy-id root@<ip>`. rmsync runs ssh in batch mode, so the key must work
-   without a password prompt (no passphrase, or loaded in ssh-agent).
-3. Install and configure:
+You need:
 
+- a reMarkable with SSH access. Tested on a reMarkable 2. The Paper Pro should work but hasn't
+  been tried.
+- Python 3.12+ and [uv](https://docs.astral.sh/uv/)
+- Taskwarrior 3
+- an [OpenRouter](https://openrouter.ai) API key
+- optional: [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) (`mmdc`), to check diagrams
+  with Mermaid itself
+
+1. **Find the tablet's address and password.** Both are under *Settings → Help → Copyrights and
+   licenses*.
+2. **Turn on SSH over Wi-Fi.** It is off by default and after every firmware update. Connect the
+   tablet by USB and run:
    ```sh
-   uv tool install -e ~/projects/unixmonks/rmsync
-   rmsync init --host root@<ip> --folder "Inbox"     # writes ~/.config/rmsync/config.toml, tests it
-   rmsync folders                                     # if you are unsure of the folder name
-   rmsync sync -n                                     # preview: transcribes, writes nothing
+   ssh root@10.11.99.1 rm-ssh-over-wlan on
+   ```
+3. **Install your SSH key.** Run `ssh-copy-id root@<tablet-ip>`. rmsync never types a password, so
+   the key needs no passphrase, or must be loaded in ssh-agent.
+4. **Install and configure rmsync:**
+   ```sh
+   uv tool install git+https://github.com/unixmonks/rmsync
+   mkdir -p ~/.config/rmsync && (umask 077; cat > ~/.config/rmsync/openrouter_key)   # paste the key, then Ctrl-D
+   rmsync init --host root@<tablet-ip> --folder "Notes"   # writes the config and tests the connection
+   rmsync folders                                          # lists the folders, if unsure of the name
+   rmsync sync -n                                          # preview: reads the pages, writes nothing
    rmsync sync
    ```
+   The key can also come from `$OPENROUTER_API_KEY`.
 
-The OpenRouter key is read from `$OPENROUTER_API_KEY` or `~/.config/rmsync/openrouter_key`.
-Give the tablet a fixed IP in your router so the host setting stays valid.
+Give the tablet a fixed address in your router (a DHCP reservation), so `host` stays right.
 
-## Running it regularly
+## Syncing automatically
 
-`rmsync watch` syncs every 5 minutes and stays quiet while the tablet is asleep or away.
-Or with cron (`crontab -e`):
+Every hour with cron (`crontab -e`):
 
 ```
-*/10 * * * * $HOME/.local/bin/rmsync sync -q >> $HOME/.local/state/rmsync/cron.log 2>&1
+20 * * * * $HOME/.local/bin/rmsync sync -q >> $HOME/.local/state/rmsync/cron.log 2>&1
 ```
 
-xochitl writes a notebook's pages when you close it, so close the notebook (or go back to the
-library) to get your latest strokes into the next sync.
+Or keep `rmsync watch` running, which syncs every five minutes. Both stay quiet while the tablet
+is asleep or away, and catch up when it is back.
 
 ## Commands
 
 ```
-rmsync init [--host H] [--folder F] [--notes-dir D] [--force]
-rmsync check                 connection + folder
-rmsync folders               folders on the tablet, with notebook counts
-rmsync sync [-n] [--full] [--retranscribe] [--notebook NAME] [--no-tasks] [-q]
-rmsync watch [--interval S]
-rmsync status                notebooks, pages and tasks synced so far
+rmsync init [--host H] [--folder F] [--notes-dir D] [--force]   write the config, test it
+rmsync check                    test the connection and the folder
+rmsync folders                  list the tablet's folders, with notebook counts
+rmsync sync                     sync once
+       -n, --dry-run            show what would change, write nothing
+       --notebook NAME          only this notebook
+       --retranscribe           read every page again (after changing the model)
+       --no-tasks               notes only
+       -q, --quiet              print only changes and errors
+rmsync watch [--interval S]     sync every S seconds (default 300)
+rmsync status                   notebooks, pages and tasks synced so far
 ```
 
-`--retranscribe` sends every page to the model again, e.g. after changing the model; tasks
-already created are matched, not duplicated.
+`sync` exits 0 when all went well, 1 when a page could not be read (it is retried next time) or
+the folder is wrong, and 2 when the tablet cannot be reached.
 
-Exit codes for `sync`: 0 ok, 1 some pages failed (retried next sync) or bad folder, 2 tablet unreachable.
+## Configuration
 
-## Files
+`~/.config/rmsync/config.toml`, written by `rmsync init`:
 
-- `~/.config/rmsync/config.toml`: settings (see the comments in it)
-- `~/notes/remarkable/<Notebook>.md`, `assets/<Notebook>/<page-id>.png`: output; subfolders of
-  the synced folder become subfolders. The `.md` is rewritten on each sync, so don't edit it there.
-- `~/.local/state/rmsync/state.json`: page hashes, transcriptions, tasks created
-- `~/.cache/rmsync/`: copy of the synced notebooks; transcriptions by page hash
+| setting       | default                    | what it does                                        |
+|---------------|----------------------------|-----------------------------------------------------|
+| `host`        | `root@10.11.99.1`          | the tablet over SSH                                 |
+| `ssh_options` | `[]`                       | extra ssh options, e.g. `["-i", "~/.ssh/id_rm"]`    |
+| `folder`      | `Inbox`                    | the tablet folder to sync: a name or a path         |
+| `recursive`   | `true`                     | include subfolders                                  |
+| `notes_dir`   | `~/notes/remarkable`       | where the Markdown goes                             |
+| `page_images` | `true`                     | save a picture of each page under its text          |
+| `model`       | `google/gemini-3.8-flash`  | any OpenRouter vision model                         |
+| `reasoning`   | `low`                      | model effort: `low` is about $0.002 and 4 s a page  |
+| `tasks`       | `true`                     | create Taskwarrior tasks                            |
+| `task_tags`   | `["remarkable"]`           | tags added to every task                            |
+| `task_project`| `""`                       | project for tasks that don't name one               |
+| `task_sync`   | `false`                    | run `task sync` after adding or completing tasks    |
 
-Renaming or moving a notebook on the tablet moves its note. A notebook removed from the folder
-keeps its note. PDFs and EPUBs in the folder are skipped.
+## Where things go
 
-## Tests
+```
+~/notes/remarkable/
+├── Meeting notes.md                  one Markdown file per notebook
+├── Work/Standup.md                   subfolders on the tablet become subfolders here
+└── assets/Meeting notes/<page>.png   the page pictures
+```
+
+Each note is rewritten on every sync, so edit on the tablet, not in the file. Renaming or moving a
+notebook on the tablet moves its note. A notebook taken out of the folder keeps its note. PDFs and
+EPUBs are skipped.
+
+rmsync keeps its records in `~/.local/state/rmsync/` and a copy of the synced notebooks in
+`~/.cache/rmsync/`.
+
+## Troubleshooting
+
+- **"cannot reach the tablet"**: the tablet is asleep, or its address changed. Wake it and check
+  the address under *Settings → Help → Copyrights and licenses*.
+- **Connection refused, though the tablet answers ping**: SSH over Wi-Fi is off, usually after a
+  firmware update. Run `rm-ssh-over-wlan on` over USB again (step 2 of Setup).
+- **"Host key verification failed"**: firmware updates give the tablet new SSH host keys. Remove
+  the old one with `ssh-keygen -R <tablet-ip>`, then connect once with `ssh root@<tablet-ip>`.
+- **New tasks don't show in `task list`**: a Taskwarrior context may be hiding them. Try
+  `task rc.context=none +remarkable list`.
+
+## Development
 
 ```sh
-uv run pytest                      # units + full sync against a fake xochitl folder and a real `task`
-tests/fake_tablet_ssh.sh           # over real SSH to a busybox/dropbear container (docker)
-RMSYNC_LIVE=1 tests/fake_tablet_ssh.sh   # same, with the live model on synthetic handwriting
+uv run pytest                            # unit tests, plus full syncs against a fake tablet folder and the real `task`
+tests/fake_tablet_ssh.sh                 # sync over real SSH from a busybox/dropbear container (needs Docker)
+RMSYNC_LIVE=1 tests/fake_tablet_ssh.sh   # the same with the live model, on generated handwriting
+uv run python docs/make_images.py        # rebuild the pictures above from a demo page
 ```
