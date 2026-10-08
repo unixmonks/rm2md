@@ -1,0 +1,26 @@
+[project]
+name = "rmsync"
+version = "0.1.0"
+description = "Sync a reMarkable folder to Markdown notes and Taskwarrior tasks over SSH"
+readme = "README.md"
+authors = [
+    { name = "g", email = "g@magnetic.sh" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "pillow>=12.3.0",
+    "rmscene>=0.8.0",
+]
+
+[project.scripts]
+rmsync = "rmsync:main"
+
+[build-system]
+requires = ["uv_build>=0.10.4,<0.11.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "hershey-fonts>=2.1.0",
+    "pytest>=9.1.1",
+]
