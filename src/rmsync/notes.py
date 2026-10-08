@@ -32,7 +32,7 @@ def demote(md: str) -> str:
     if heads:
         shift = 3 - min(n for _, n in heads)
         for i, n in heads:
-            lines[i] = "#" * min(6, n + shift) + lines[i][n:]
+            lines[i] = "#" * min(4, n + shift) + lines[i][n:]  # deeper levels read as body text
     return "\n".join(lines)
 
 

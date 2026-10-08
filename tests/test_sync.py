@@ -190,3 +190,15 @@ def test_broken_diagram_is_repaired_once_and_cached(env):
     assert len(fixes) == 1 and '```mermaid\nflowchart TD\n  A["start"] --> B["end"]\n```' in md
     Syncer(cfg, transcriber=mock_ocr, diagram_fixer=fixer, log=lambda s: None).run(full=True)
     assert len(fixes) == 1 and len(ocr.calls) == 1  # repaired text was stored with the page
+
+
+def test_retranscribe_sends_pages_again_without_duplicating_tasks(env):
+    x, cfg, ocr, tmp = env
+    setup_inbox(x, ocr)
+    run(cfg, ocr)
+    ocr.calls.clear()
+    ocr.pages[("Meeting notes", 1)] = [("task", "email Dana the slides (by friday)", False),
+                                       ("task", "book flights #work", False), ("task", "renew passport", True)]
+    rep, _ = run(cfg, ocr, retranscribe=True)
+    assert sorted(ocr.calls) == [("Meeting notes", 1), ("Meeting notes", 2)]
+    assert rep.tasks_added == [] and len(tw()) == 3

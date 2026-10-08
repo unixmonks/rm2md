@@ -84,12 +84,16 @@ def test_parse_reply_cleans():
     a, b = r.tasks
     assert (a.text, a.project, a.tags, a.due, a.priority) == ("buy milk", "HomeStuff", ["a", "bc"], "2026-10-09", None)
     assert b.due is None
+    r = parse_reply({"markdown": "", "tasks": [{"text": "fix the SSH connection.", "scheduled": "2026-10-08"}]})
+    assert r.tasks[0].text == "fix the SSH connection" and r.tasks[0].scheduled == "2026-10-08"
 
 
 def test_similar():
     assert similar("Email Dana the slides", "email dana the slides.") == 1.0
     assert similar("email Dana the slides", "email Dana the slide") > 0.9
     assert similar("email Dana", "book flights") < 0.5
+    assert similar("pay bill", "pay bill (scheduled tomorrow)") >= 0.8
+    assert similar("pay", "pay bill scheduled tomorrow") < 0.8  # one word is too little to go on
 
 
 def test_task_json():
@@ -97,7 +101,9 @@ def test_task_json():
     j = to_json(TaskItem("x", done=True, tags=["work"], due="2026-10-09", priority="H"), "u1", "note", ["remarkable"], "", now)
     assert j["status"] == "completed" and j["end"] == "20261007T120000Z"
     assert j["tags"] == ["remarkable", "work"] and j["priority"] == "H" and "project" not in j
-    assert j["due"].startswith("2026100")
+    assert j["due"].startswith("2026100") and "scheduled" not in j
+    j = to_json(TaskItem("y", scheduled="2026-10-08"), "u2", "note", [], "", now)
+    assert j["scheduled"].startswith("2026100") and "due" not in j
 
 
 def test_note_rendering():
@@ -112,3 +118,4 @@ def test_note_rendering():
     assert notes.safe_name('a/b:c?') == "a-b-c"
     assert notes.demote("### TODO\n- x\n#### sub") == "### TODO\n- x\n#### sub"
     assert notes.demote("# A\n## B") == "### A\n#### B"
+    assert notes.demote("# A\n### C") == "### A\n#### C"

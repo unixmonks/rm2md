@@ -47,9 +47,10 @@ def to_json(item: TaskItem, uuid: str, annotation: str, tags: list[str], project
         t["project"] = item.project or project
     if item.priority:
         t["priority"] = item.priority
-    if item.due:
-        d = dt.date.fromisoformat(item.due)
-        t["due"] = _utc(dt.datetime(d.year, d.month, d.day).astimezone())  # local midnight, like due:fri
+    for field in ("due", "scheduled"):
+        if value := getattr(item, field):
+            d = dt.date.fromisoformat(value)
+            t[field] = _utc(dt.datetime(d.year, d.month, d.day).astimezone())  # local midnight, like due:fri
     if not t["tags"]:
         del t["tags"]
     return t

@@ -48,7 +48,12 @@ or when it is listed under a `TODO` / `Tasks` heading. Other bullet points are n
 | `#word` or `+word`                   | tag                              |
 | `@word`, `pro:word`                  | project                          |
 | `due fri`, `by 10/15`, `→ mon`       | due date (month/day)             |
+| `scheduled tomorrow`, `start mon`    | scheduled date                   |
 | `!` · `(A)` / `(B)` / `(C)`          | priority H · H / M / L           |
+
+A task is done only when its own line is struck through or its own box is ticked; `*`, `•` and
+`-` bullets are never boxes. Markers are taken out of the task text, so "pay bill (due fri)"
+becomes the task "pay bill" with a due date.
 
 Every task also gets the tags in `task_tags` (default `+remarkable`) and an annotation naming the
 notebook and page. rmsync never edits or deletes tasks: a task you delete in Taskwarrior is not
@@ -91,10 +96,13 @@ library) to get your latest strokes into the next sync.
 rmsync init [--host H] [--folder F] [--notes-dir D] [--force]
 rmsync check                 connection + folder
 rmsync folders               folders on the tablet, with notebook counts
-rmsync sync [-n] [--full] [--notebook NAME] [--no-tasks] [-q]
+rmsync sync [-n] [--full] [--retranscribe] [--notebook NAME] [--no-tasks] [-q]
 rmsync watch [--interval S]
 rmsync status                notebooks, pages and tasks synced so far
 ```
+
+`--retranscribe` sends every page to the model again, e.g. after changing the model; tasks
+already created are matched, not duplicated.
 
 Exit codes for `sync`: 0 ok, 1 some pages failed (retried next sync) or bad folder, 2 tablet unreachable.
 

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 API_URL = os.environ.get("RMSYNC_API_URL", "https://openrouter.ai/api/v1/chat/completions")
 # Part of the transcription cache key: bump when the prompt changes what comes back.
-PROMPT_VERSION = 2
+PROMPT_VERSION = 3
 
 PROMPT = """You transcribe a handwritten page from a reMarkable tablet notebook.
 Today is {today} ({weekday}). Notebook: "{notebook}", page {page}.
@@ -42,15 +42,22 @@ with a tree]*".
 
 "tasks": one entry per task on the page, in page order. A line is a task when it starts with a
 hand-drawn checkbox (a small square or circle), or with "TODO", "todo:" or "[ ]"; also every item
-listed under a heading such as "TODO", "To do" or "Tasks". A tick, cross or fill inside the box, or
-a line struck through, means done. Other bullet points are NOT tasks. For each task:
-  "text": the task without the checkbox and without the markers below
-  "done": true if ticked
+listed under a heading such as "TODO", "To do" or "Tasks". Other bullet points are NOT tasks.
+Judge "done" for each line on its own: a task is done ONLY if that line itself is struck through,
+or its own checkbox has a tick, cross or fill. Bullets such as *, •, -, ○ are not checkboxes and
+never mean done. Other struck-through lines elsewhere on the page do not make a line done.
+For each task:
+  "text": the task without the checkbox, bullet, trailing full stop and the markers below; keep
+          any other words, including words in brackets that are not a marker
+  "done": as above; false when unsure
   "project": from "@word" or "pro:word" or "project:word" on the line, else null
   "tags": from "#word" or "+word" on the line (no # or +), else []
   "due": from "due fri", "by 12/3", "due:tomorrow", "→ mon" etc. as YYYY-MM-DD computed from today, else null.
          Dates like 12/3 are month/day.
+  "scheduled": from "scheduled tomorrow", "sched mon", "start 12/3" etc., as YYYY-MM-DD the same way, else null
   "priority": "H" for "!" or "!!" or "!!!" or "(A)" on the line, "M" for "(B)", "L" for "(C)", else null
+  The text of a marker is removed from "text", along with brackets around it: "pay bill (due fri)"
+  is text "pay bill" with a due date.
 
 "title": a short title for the page if it has an obvious heading, else null
 "confidence": "high", "medium" or "low" for the transcription as a whole
@@ -70,13 +77,14 @@ SCHEMA = {
             "tasks": {"type": "array", "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["text", "done", "project", "tags", "due", "priority"],
+                "required": ["text", "done", "project", "tags", "due", "scheduled", "priority"],
                 "properties": {
                     "text": {"type": "string"},
                     "done": {"type": "boolean"},
                     "project": {"type": ["string", "null"]},
                     "tags": {"type": "array", "items": {"type": "string"}},
                     "due": {"type": ["string", "null"]},
+                    "scheduled": {"type": ["string", "null"]},
                     "priority": {"anyOf": [{"type": "string", "enum": ["H", "M", "L"]}, {"type": "null"}]},
                 },
             }},
@@ -97,6 +105,7 @@ class TaskItem:
     tags: list[str] = field(default_factory=list)
     due: str | None = None
     priority: str | None = None
+    scheduled: str | None = None
 
 
 @dataclass
@@ -132,11 +141,12 @@ def parse_reply(obj: dict) -> PageText:
         if not isinstance(t, dict) or not str(t.get("text", "")).strip():
             continue
         tasks.append(TaskItem(
-            text=" ".join(str(t["text"]).split()),
+            text=" ".join(str(t["text"]).split()).rstrip(".").strip() or str(t["text"]).strip(),
             done=bool(t.get("done")),
             project=_clean_word(t.get("project")),
             tags=[w for w in (_clean_word(x) for x in t.get("tags") or [] if isinstance(x, str)) if w],
             due=_clean_date(t.get("due")),
+            scheduled=_clean_date(t.get("scheduled")),
             priority=t.get("priority") if t.get("priority") in ("H", "M", "L") else None,
         ))
     conf = obj.get("confidence")

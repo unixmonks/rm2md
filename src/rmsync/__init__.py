@@ -93,7 +93,7 @@ def cmd_sync(a, cfg) -> int:
         cfg.tasks = False
     _l = _lock(cfg)
     try:
-        rep = Syncer(cfg, dry_run=a.dry_run, log=(lambda s: None) if a.quiet else print).run(full=a.full, only=a.notebook)
+        rep = Syncer(cfg, dry_run=a.dry_run, log=(lambda s: None) if a.quiet else print).run(full=a.full, only=a.notebook, retranscribe=a.retranscribe)
     except TabletError as e:
         print(f"cannot reach the tablet: {e}", file=sys.stderr)
         return 2
@@ -158,6 +158,8 @@ def main(argv: list[str] | None = None) -> int:
     s.add_argument("-n", "--dry-run", action="store_true", help="show what would change; write nothing")
     s.add_argument("--full", action="store_true", help="re-read every notebook (pages already transcribed are reused)")
     s.add_argument("--notebook", help="only this notebook (name or id)")
+    s.add_argument("--retranscribe", action="store_true",
+                   help="send every page to the model again (after changing model or prompt)")
     s.add_argument("--no-tasks", action="store_true", help="notes only")
     s.add_argument("-q", "--quiet", action="store_true", help="print only changes and errors")
     w = sub.add_parser("watch", help="sync every few minutes while the tablet is reachable")

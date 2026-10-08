@@ -64,7 +64,12 @@ def _norm(s: str) -> str:
 
 def similar(a: str, b: str) -> float:
     a, b = _norm(a), _norm(b)
-    return 1.0 if a == b else SequenceMatcher(None, a, b).ratio()
+    if a == b:
+        return 1.0
+    wa, wb = set(a.split()), set(b.split())
+    if min(len(wa), len(wb)) >= 2 and (wa <= wb or wb <= wa):
+        return 0.9  # one reading adds words to the other, e.g. a date left in or taken out
+    return SequenceMatcher(None, a, b).ratio()
 
 
 _TYPED_TASK = re.compile(r"^\s*- \[( |x)\] (.+)$")
@@ -98,10 +103,13 @@ class Syncer:
         self.dry_run = dry_run
         self.cache = cfg.cache_dir / "xochitl"
         self.state = State(cfg.state_dir / "state.json")
+        self.retranscribe = False
 
     # -- main entry ---------------------------------------------------------------------------
-    def run(self, full: bool = False, only: str | None = None) -> Report:
+    def run(self, full: bool = False, only: str | None = None, retranscribe: bool = False) -> Report:
         rep = Report()
+        self.retranscribe = retranscribe
+        full = full or retranscribe
         meta = self.tablet.list_metadata()
         root = library.find_folder(meta, self.cfg.folder)
         source = library.folders(meta)[root]
@@ -169,7 +177,7 @@ class Syncer:
             data = rm.read_bytes() if rm.exists() else b""
             h = hashlib.sha256(data).hexdigest()[:16]
             prev = st["pages"].get(pid)
-            reuse = prev and prev.get("hash") == h and not prev.get("error")
+            reuse = prev and prev.get("hash") == h and not prev.get("error") and not self.retranscribe
             png = None
             need_png = self.cfg.page_images and data and not (assets / f"{pid}.png").exists()
             if data and (not reuse or need_png):
@@ -230,10 +238,11 @@ class Syncer:
             rep.pages_failed.append(f"{label} p{n}")
             return {"hash": h, "error": "no OpenRouter API key"}
         cached = self.cfg.cache_dir / "ocr" / f"{h}-{re.sub(r'[^\w.-]', '_', self.cfg.model)}-v{PROMPT_VERSION}.json"
-        try:  # a dry run, or a run that failed later, already paid for this page
-            return {**json.loads(cached.read_text()), "hash": h}
-        except (OSError, json.JSONDecodeError):
-            pass
+        if not self.retranscribe:
+            try:  # a dry run, or a run that failed later, already paid for this page
+                return {**json.loads(cached.read_text()), "hash": h}
+            except (OSError, json.JSONDecodeError):
+                pass
         try:
             res = self.transcribe(page.png, api_key=key, model=self.cfg.model, notebook=name, page=n,
                                   typed=page.typed, reasoning=self.cfg.reasoning)
