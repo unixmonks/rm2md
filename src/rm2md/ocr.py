@@ -1,17 +1,17 @@
-"""Handwriting → Markdown + tasks, with a vision model on OpenRouter."""
+"""Handwriting → Markdown + tasks, with a vision model behind any OpenAI-compatible API
+(OpenRouter by default; OpenAI, Ollama, LM Studio, vLLM and others work the same way)."""
 from __future__ import annotations
 
 import base64
 import datetime as dt
 import json
-import os
 import re
 import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 
-API_URL = os.environ.get("RM2MD_API_URL", "https://openrouter.ai/api/v1/chat/completions")
+DEFAULT_API_BASE = "https://openrouter.ai/api/v1"
 # Part of the transcription cache key: bump when the prompt changes what comes back.
 PROMPT_VERSION = 4
 
@@ -172,16 +172,33 @@ def _extract_json(text: str) -> dict:
         raise
 
 
-def transcribe(png: bytes, *, api_key: str, model: str, notebook: str, page: int, typed: str = "",
-               reasoning: str = "low", today: dt.date | None = None, retries: int = 3,
-               timeout: int = 120) -> PageText:
+@dataclass
+class Provider:
+    """An OpenAI-compatible chat completions endpoint and the model to use on it."""
+    model: str
+    base: str = DEFAULT_API_BASE
+    key: str | None = None  # None: no Authorization header (local servers)
+    reasoning: str = "low"  # "" sends no reasoning setting
+    timeout: int = 120
+
+    @property
+    def url(self) -> str:
+        return self.base.rstrip("/") + "/chat/completions"
+
+    @property
+    def openrouter(self) -> bool:
+        return "openrouter.ai" in self.base
+
+
+def transcribe(png: bytes, *, provider: Provider, notebook: str, page: int, typed: str = "",
+               today: dt.date | None = None, retries: int = 3) -> PageText:
     today = today or dt.date.today()
     typed_note = (f"\nThe page also has typed text (already known, include it in the markdown where it fits):\n"
                   f"<<<\n{typed}\n>>>\n") if typed else ""
     prompt = PROMPT.format(today=today.isoformat(), weekday=today.strftime("%A"), notebook=notebook,
                            page=page, typed=typed_note)
     body = {
-        "model": model,
+        "model": provider.model,
         "messages": [{"role": "user", "content": [
             {"type": "text", "text": prompt},
             {"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(png).decode()}},
@@ -189,44 +206,98 @@ def transcribe(png: bytes, *, api_key: str, model: str, notebook: str, page: int
         "response_format": {"type": "json_schema", "json_schema": SCHEMA},
         "temperature": 0,
     }
-    if reasoning:
-        body["reasoning"] = {"effort": reasoning}
-    text = _chat(body, api_key, retries, timeout)
+    text = _chat(body, provider, retries)
     try:
         return parse_reply(_extract_json(text))
     except (json.JSONDecodeError, ValueError, AttributeError) as e:
-        raise OcrError(f"{model}: reply was not the expected JSON ({e})")
+        raise OcrError(f"{provider.model}: reply was not the expected JSON ({e})")
 
 
-def _chat(body: dict, api_key: str, retries: int = 3, timeout: int = 120) -> str:
-    """POSTs a chat request and returns the reply text, retrying network and server errors."""
-    model = body.get("model", "")
-    req_data = json.dumps(body).encode()
+class _Rejected(OcrError):
+    """The provider refused the request as malformed (HTTP 400/422): try a plainer one."""
+
+
+# (endpoint, model) -> index of the request variant that worked, so later pages start there.
+_WORKS: dict[tuple[str, str], int] = {}
+
+
+def _variants(body: dict, p: Provider) -> list[dict]:
+    """The request, then plainer versions for servers that reject an option: without the
+    reasoning setting, with plain JSON mode instead of a schema, and with neither."""
+    full = dict(body)
+    if p.reasoning:
+        if p.openrouter:
+            full["reasoning"] = {"effort": p.reasoning}
+        else:
+            full["reasoning_effort"] = p.reasoning
+    plain = dict(body)
+    out = [full, plain]
+    if "response_format" in body:
+        out.append({**plain, "response_format": {"type": "json_object"}})
+        out.append({k: v for k, v in plain.items() if k != "response_format"})
+    seen, unique = set(), []
+    for v in out:
+        k = json.dumps({x: y for x, y in v.items() if x != "messages"}, sort_keys=True)
+        if k not in seen:
+            seen.add(k)
+            unique.append(v)
+    return unique
+
+
+def _chat(body: dict, p: Provider, retries: int = 3) -> str:
+    """Sends a chat request and returns the reply text, falling back to plainer requests when the
+    provider rejects an option."""
+    variants = _variants(body, p)
+    key = (p.url, p.model)
+    start = min(_WORKS.get(key, 0), len(variants) - 1)
+    last: OcrError | None = None
+    for i in range(start, len(variants)):
+        try:
+            text = _post(variants[i], p, retries)
+            _WORKS[key] = i
+            return text
+        except _Rejected as e:
+            last = e
+    raise last or OcrError("failed")
+
+
+def _post(body: dict, p: Provider, retries: int) -> str:
+    """POSTs once, retrying network and server errors."""
+    headers = {"Content-Type": "application/json"}
+    if p.key:
+        headers["Authorization"] = f"Bearer {p.key}"
+    if p.openrouter:
+        headers.update({"X-Title": "rm2md", "HTTP-Referer": "https://github.com/unixmonks/rm2md"})
+    data = json.dumps(body).encode()
     last = None
     for attempt in range(retries):
-        req = urllib.request.Request(API_URL, data=req_data, method="POST", headers={
-            "Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
-            "X-Title": "rm2md",
-        })
+        req = urllib.request.Request(p.url, data=data, method="POST", headers=headers)
         try:
-            with urllib.request.urlopen(req, timeout=timeout) as r:
+            with urllib.request.urlopen(req, timeout=p.timeout) as r:
                 reply = json.load(r)
             if "error" in reply:
-                raise OcrError(f"{model}: {reply['error'].get('message', reply['error'])}")
+                raise OcrError(f"{p.model}: {reply['error'].get('message', reply['error'])}")
             content = reply["choices"][0]["message"]["content"]
             if isinstance(content, list):
                 content = "".join(c.get("text", "") for c in content if isinstance(c, dict))
             return content or ""
         except urllib.error.HTTPError as e:
             detail = e.read().decode(errors="replace")[:300]
-            last = OcrError(f"{model}: HTTP {e.code} {detail}")
-            if e.code in (400, 401, 402, 403, 404):
-                raise last
+            msg = f"{p.model}: HTTP {e.code} {detail}"
+            if e.code in (400, 422):
+                raise _Rejected(msg)
+            if e.code in (401, 403):
+                raise OcrError(msg + (" (no API key is set: see api_key_env / api_key_file)" if not p.key
+                                      else " (check the API key)"))
+            if e.code in (402, 404):
+                raise OcrError(msg + (" (check model and api_base)" if e.code == 404 else ""))
+            last = OcrError(msg)
         except (urllib.error.URLError, TimeoutError, OSError) as e:
-            last = OcrError(f"{model}: {e}")
-        except (KeyError, IndexError, TypeError) as e:
-            last = OcrError(f"{model}: unexpected reply ({e})")
-        time.sleep(2 * (attempt + 1))
+            last = OcrError(f"{p.model} at {p.base}: {e}")
+        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as e:
+            last = OcrError(f"{p.model}: unexpected reply ({e})")
+        if attempt < retries - 1:
+            time.sleep(2 * (attempt + 1))
     raise last or OcrError("failed")
 
 
@@ -241,10 +312,8 @@ Diagram:
 {code}"""
 
 
-def fix_mermaid(code: str, error: str, *, api_key: str, model: str, reasoning: str = "low") -> str:
-    body = {"model": model, "temperature": 0,
+def fix_mermaid(code: str, error: str, *, provider: Provider) -> str:
+    body = {"model": provider.model, "temperature": 0,
             "messages": [{"role": "user", "content": FIX_PROMPT.format(error=error[:800], code=code)}]}
-    if reasoning:
-        body["reasoning"] = {"effort": reasoning}
-    text = _chat(body, api_key).strip()
+    text = _chat(body, provider).strip()
     return re.sub(r"^```(?:mermaid)?\s*|\s*```$", "", text).strip()

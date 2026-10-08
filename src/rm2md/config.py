@@ -32,13 +32,24 @@ notes_dir = "{notes_dir}"
 # Save a PNG of each page next to the notes and link it under the page text.
 page_images = true
 
-# Handwriting recognition through OpenRouter.
+# Handwriting recognition: any OpenAI-compatible API with a vision model. Examples:
+#   OpenRouter  api_base = "https://openrouter.ai/api/v1"   model = "google/gemini-3.8-flash"
+#   OpenAI      api_base = "https://api.openai.com/v1"      model = "gpt-5.6-luna"
+#               api_key_env = "OPENAI_API_KEY"
+#   Ollama      api_base = "http://localhost:11434/v1"      model = "qwen2.5vl:7b"
+#   LM Studio   api_base = "http://localhost:1234/v1"       model = "qwen3.5-9b"
+# Local servers need no key; give them a longer timeout.
+api_base = "https://openrouter.ai/api/v1"
 model = "google/gemini-3.8-flash"
-# How much the model thinks: "low" is ~$0.002 and ~4 s a page; "" uses the model's default
-# (~$0.008 and ~20 s with gemini-3.8-flash), "high" for very hard handwriting.
+# How much the model thinks: "low" is ~$0.002 and ~4 s a page with gemini-3.8-flash; ""
+# sends nothing (the model's default), "high" for very hard handwriting. Ignored by models
+# without the setting.
 reasoning = "low"
-# The key is read from $OPENROUTER_API_KEY, or else from this file.
+# The key comes from $RM2MD_API_KEY, else from the variable named here, else from the file.
+api_key_env = "OPENROUTER_API_KEY"
 api_key_file = "{key_file}"
+# Seconds to wait for the model on each page.
+timeout = 120
 
 # Taskwarrior (optional). With tasks = false rm2md only writes notes, and Taskwarrior
 # need not be installed. Turning it on later: run `rm2md sync --full` once to add the
@@ -60,9 +71,12 @@ class Config:
     recursive: bool = True
     notes_dir: Path = Path.home() / "notes" / "remarkable"
     page_images: bool = True
+    api_base: str = "https://openrouter.ai/api/v1"
     model: str = "google/gemini-3.8-flash"
     reasoning: str = "low"
-    api_key_file: Path = _xdg("XDG_CONFIG_HOME", ".config") / "rm2md" / "openrouter_key"
+    api_key_env: str = "OPENROUTER_API_KEY"
+    api_key_file: Path = _xdg("XDG_CONFIG_HOME", ".config") / "rm2md" / "api_key"
+    timeout: int = 120
     tasks: bool = True
     task_tags: list[str] = field(default_factory=lambda: ["remarkable"])
     task_project: str = ""
@@ -72,12 +86,18 @@ class Config:
     cache_dir: Path = _xdg("XDG_CACHE_HOME", ".cache") / "rm2md"
 
     def api_key(self) -> str | None:
-        if key := os.environ.get("OPENROUTER_API_KEY"):
-            return key.strip()
+        for var in ("RM2MD_API_KEY", self.api_key_env):
+            if var and (key := os.environ.get(var, "").strip()):
+                return key
         try:
             return self.api_key_file.read_text().strip() or None
         except OSError:
             return None
+
+    def provider(self):
+        from .ocr import Provider
+        return Provider(model=self.model, base=self.api_base, key=self.api_key(), reasoning=self.reasoning,
+                        timeout=self.timeout)
 
 
 def _path(v: str) -> Path:

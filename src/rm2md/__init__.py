@@ -55,7 +55,11 @@ def cmd_init(a, cfg) -> int:
                                   tasks=not a.no_tasks)
         print(f"wrote {path}")
         cfg = config_mod.load(path)
-    print(f"key: {'found' if cfg.api_key() else 'MISSING — set OPENROUTER_API_KEY or ' + str(cfg.api_key_file)}")
+    print(f"model: {cfg.model} at {cfg.api_base}")
+    if cfg.api_key():
+        print("key: found")
+    else:
+        print(f"key: none (fine for a local server; otherwise set ${cfg.api_key_env} or write it to {cfg.api_key_file})")
     if not cfg.tasks:
         print("tasks: off (notes only)")
     else:

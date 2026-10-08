@@ -181,7 +181,7 @@ def test_broken_diagram_is_repaired_once_and_cached(env):
         ocr.calls.append((kw["notebook"], kw["page"]))
         return PageText(markdown=f"# Flow\n\n```mermaid\n{broken}\n```", tasks=[])
 
-    def fixer(code, err, **kw):
+    def fixer(code, err, **kw):  # noqa: ARG001
         fixes.append(err)
         return 'flowchart TD\n  A["start"] --> B["end"]'
 

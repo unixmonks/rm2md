@@ -37,7 +37,7 @@ class MockOcr:
         self.calls: list[tuple[str, int]] = []
         self.fail: set[tuple[str, int]] = set()
 
-    def __call__(self, png, *, api_key, model, notebook, page, typed="", reasoning=""):
+    def __call__(self, png, *, provider, notebook, page, typed=""):
         assert png.startswith(b"\x89PNG")
         self.calls.append((notebook, page))
         if (notebook, page) in self.fail:

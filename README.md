@@ -18,7 +18,8 @@ Sponsored by:
 sketch turned into a diagram ([raw Markdown](docs/images/after.md)).*
 
 rm2md syncs one folder of notebooks from the tablet over SSH (Wi-Fi or USB). A vision model reads
-the handwriting through [OpenRouter](https://openrouter.ai), and each notebook becomes one Markdown
+the handwriting, through [OpenRouter](https://openrouter.ai) or any other OpenAI-compatible API
+(including local models), and each notebook becomes one Markdown
 file. The same page also gave these tasks:
 
 ```
@@ -85,7 +86,8 @@ You need:
   been tried.
 - Python 3.12+ and [uv](https://docs.astral.sh/uv/)
 - Taskwarrior 3, only if you want tasks
-- an [OpenRouter](https://openrouter.ai) API key
+- an [OpenRouter](https://openrouter.ai) API key, or another AI provider (see
+  [Choosing an AI provider](#choosing-an-ai-provider))
 - optional: [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) (`mmdc`), to check diagrams
   with Mermaid itself
 
@@ -101,15 +103,37 @@ You need:
 4. **Install and configure rm2md:**
    ```sh
    uv tool install git+https://github.com/unixmonks/rm2md
-   mkdir -p ~/.config/rm2md && (umask 077; cat > ~/.config/rm2md/openrouter_key)   # paste the key, then Ctrl-D
+   mkdir -p ~/.config/rm2md && (umask 077; cat > ~/.config/rm2md/api_key)   # paste the key, then Ctrl-D
    rm2md init --host root@<tablet-ip> --folder "Notes"   # writes the config and tests it (--no-tasks for notes only)
    rm2md folders                                          # lists the folders, if unsure of the name
    rm2md sync -n                                          # preview: reads the pages, writes nothing
    rm2md sync
    ```
-   The key can also come from `$OPENROUTER_API_KEY`.
+   The key can also come from `$OPENROUTER_API_KEY` (or `$RM2MD_API_KEY`).
 
 Give the tablet a fixed address in your router (a DHCP reservation), so `host` stays right.
+
+## Choosing an AI provider
+
+rm2md talks to any API that speaks OpenAI's chat completions format and accepts images. Set
+`api_base`, `model` and, for a hosted provider, the key:
+
+| provider   | `api_base`                       | `model` (example)          | key                               |
+|------------|----------------------------------|----------------------------|-----------------------------------|
+| OpenRouter | `https://openrouter.ai/api/v1`   | `google/gemini-3.8-flash`  | `OPENROUTER_API_KEY` (default)    |
+| OpenAI     | `https://api.openai.com/v1`      | `gpt-5.6-luna`             | `api_key_env = "OPENAI_API_KEY"`  |
+| Ollama     | `http://localhost:11434/v1`      | `qwen2.5vl:7b`             | none                              |
+| LM Studio  | `http://localhost:1234/v1`       | `qwen3.5-9b`               | none                              |
+
+vLLM, llama.cpp's server, Groq, Together and other OpenAI-compatible services work the same way.
+If a provider rejects an option rm2md sends (the reasoning setting, or strict JSON output), rm2md
+retries without it and remembers what worked, so most need no extra settings.
+
+**Hosted or local?** The default, Gemini 3.8 Flash on OpenRouter, read the page at the top of this
+README without a mistake for about $0.002. A local model is free and keeps your pages on your
+machine, but small ones are less accurate: Qwen3.5-9B in LM Studio, on an 8 GB GPU, took 40 to 90
+seconds a page, misread a few words, missed a crossed-out task and left dates in task text. Give a
+local server a longer `timeout` (300 or more), and check its first notes against the page images.
 
 ## Notes only
 
@@ -164,8 +188,12 @@ the folder is wrong, and 2 when the tablet cannot be reached.
 | `recursive`   | `true`                     | include subfolders                                  |
 | `notes_dir`   | `~/notes/remarkable`       | where the Markdown goes                             |
 | `page_images` | `true`                     | save a picture of each page under its text          |
-| `model`       | `google/gemini-3.8-flash`  | any OpenRouter vision model                         |
-| `reasoning`   | `low`                      | model effort: `low` is about $0.002 and 4 s a page  |
+| `api_base`    | `https://openrouter.ai/api/v1` | any OpenAI-compatible API                       |
+| `model`       | `google/gemini-3.8-flash`  | a vision model on that API                          |
+| `reasoning`   | `low`                      | model effort: `low` is about $0.002 and 4 s a page; `""` sends none |
+| `api_key_env` | `OPENROUTER_API_KEY`       | environment variable holding the key                |
+| `api_key_file`| `~/.config/rm2md/api_key`  | file holding the key, if the variable is unset      |
+| `timeout`     | `120`                      | seconds to wait for the model on each page          |
 | `tasks`       | `true`                     | create Taskwarrior tasks; `false` for notes only    |
 | `task_tags`   | `["remarkable"]`           | tags added to every task                            |
 | `task_project`| `""`                       | project for tasks that don't name one               |

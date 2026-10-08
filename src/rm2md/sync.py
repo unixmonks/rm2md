@@ -12,6 +12,7 @@ from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Callable
+from urllib.parse import urlparse
 
 from . import library, mermaid, notes, tasks
 from .config import Config
@@ -234,19 +235,17 @@ class Syncer:
         if page.png is None:  # typed text only
             return {"hash": h, "markdown": page.typed, "title": None, "confidence": "high",
                     "tasks": [t.__dict__ for t in typed_tasks(page.typed)]}
-        key = self.cfg.api_key()
-        if not key:
-            rep.pages_failed.append(f"{label} p{n}")
-            return {"hash": h, "error": "no OpenRouter API key"}
-        cached = self.cfg.cache_dir / "ocr" / f"{h}-{re.sub(r'[^\w.-]', '_', self.cfg.model)}-v{PROMPT_VERSION}.json"
+        provider = self.cfg.provider()
+        where = "" if provider.openrouter else "-" + (urlparse(provider.base).netloc or "local")
+        name_part = re.sub(r"[^\w.-]", "_", f"{self.cfg.model}{where}")
+        cached = self.cfg.cache_dir / "ocr" / f"{h}-{name_part}-v{PROMPT_VERSION}.json"
         if not self.retranscribe:
             try:  # a dry run, or a run that failed later, already paid for this page
                 return {**json.loads(cached.read_text()), "hash": h}
             except (OSError, json.JSONDecodeError):
                 pass
         try:
-            res = self.transcribe(page.png, api_key=key, model=self.cfg.model, notebook=name, page=n,
-                                  typed=page.typed, reasoning=self.cfg.reasoning)
+            res = self.transcribe(page.png, provider=provider, notebook=name, page=n, typed=page.typed)
         except OcrError as e:
             self.log(f"  page {n}: {e}")
             rep.pages_failed.append(f"{label} p{n}")
@@ -255,7 +254,7 @@ class Syncer:
         fixer = None
         if self.fix_diagram:
             def fixer(code: str, err: str) -> str:
-                return self.fix_diagram(code, err, api_key=key, model=self.cfg.model, reasoning=self.cfg.reasoning)
+                return self.fix_diagram(code, err, provider=provider)
         res.markdown = mermaid.repair(res.markdown, fixer, self.log)
         entry = {"hash": h, "markdown": res.markdown, "title": res.title, "confidence": res.confidence,
                  "tasks": [t.__dict__ for t in res.tasks], "model": self.cfg.model}
