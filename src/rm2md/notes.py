@@ -59,7 +59,7 @@ def render_note(*, name: str, uuid: str, source: str, last_modified: str, pages:
         f"pages: {len(pages)}",
         "tags: [remarkable]",
         "---",
-        "<!-- Written by rmsync from the reMarkable notebook. Edits here are overwritten on the next sync. -->",
+        "<!-- Written by rm2md from the reMarkable notebook. Edits here are overwritten on the next sync. -->",
         "",
         f"# {name}",
     ]

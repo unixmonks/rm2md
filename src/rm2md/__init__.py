@@ -1,4 +1,4 @@
-"""rmsync: one reMarkable folder → Markdown notes + Taskwarrior tasks, over SSH."""
+"""rm2md: one reMarkable folder → Markdown notes + Taskwarrior tasks, over SSH."""
 from __future__ import annotations
 
 import argparse
@@ -19,7 +19,7 @@ def _lock(cfg: config_mod.Config):
     try:
         fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
-        raise SystemExit("another rmsync is running")
+        raise SystemExit("another rm2md is running")
     return f
 
 
@@ -136,7 +136,7 @@ def cmd_watch(a, cfg) -> int:
 def cmd_status(a, cfg) -> int:
     from .sync import State
     st = State(cfg.state_dir / "state.json")
-    print(f"config: {config_mod.CONFIG_PATH}{'' if config_mod.CONFIG_PATH.exists() else ' (missing; run rmsync init)'}")
+    print(f"config: {config_mod.CONFIG_PATH}{'' if config_mod.CONFIG_PATH.exists() else ' (missing; run rm2md init)'}")
     print(f"tablet: {cfg.host}   folder: {cfg.folder}   notes: {cfg.notes_dir}   model: {cfg.model}")
     for u, d in sorted(st.docs.items(), key=lambda kv: kv[1].get("name", "")):
         pages = d.get("pages", {})
@@ -148,7 +148,7 @@ def cmd_status(a, cfg) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="rmsync", description=__doc__)
+    p = argparse.ArgumentParser(prog="rm2md", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
     i = sub.add_parser("init", help="write a config file and test the connection")
     i.add_argument("--host"); i.add_argument("--folder"); i.add_argument("--notes-dir"); i.add_argument("--force", action="store_true")

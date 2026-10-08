@@ -7,9 +7,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 
 from fakexochitl import FakeXochitl  # noqa: E402
-from rmsync.config import Config  # noqa: E402
-from rmsync.ocr import OcrError, PageText, TaskItem  # noqa: E402
-from rmsync.sync import typed_tasks  # noqa: E402
+from rm2md.config import Config  # noqa: E402
+from rm2md.ocr import OcrError, PageText, TaskItem  # noqa: E402
+from rm2md.sync import typed_tasks  # noqa: E402
 
 FIXTURES = Path(__file__).parent / "fixtures"
 

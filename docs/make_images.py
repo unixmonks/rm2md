@@ -1,12 +1,12 @@
-"""Builds the README pictures: a handwritten page next to the note rmsync made from it.
+"""Builds the README pictures: a handwritten page next to the note rm2md made from it.
 
-Saves images/before-after.png (the page as rmsync sees it beside the note rendered as Markdown,
+Saves images/before-after.png (the page as rm2md sees it beside the note rendered as Markdown,
 Mermaid diagram included), images/after.md (the note) and images/tasks.txt (Taskwarrior output).
-The source is either a note rmsync already wrote, or docs/demo_page.py synced from a fake tablet
+The source is either a note rm2md already wrote, or docs/demo_page.py synced from a fake tablet
 folder with the live model (about $0.002).
 
 usage: uv run python docs/make_images.py                 demo page, synced with the live model
-       uv run python docs/make_images.py --note FILE.md  a note rmsync already wrote, with its
+       uv run python docs/make_images.py --note FILE.md  a note rm2md already wrote, with its
                                                          page image and its +remarkable tasks
 needs chromium and mmdc (and the OpenRouter key for the demo).
 """
@@ -26,8 +26,8 @@ from demo_page import DEMO  # noqa: E402
 from fakexochitl import FakeXochitl  # noqa: E402
 from PIL import Image, ImageChops, ImageDraw, ImageOps  # noqa: E402
 
-from rmsync.config import Config, load  # noqa: E402
-from rmsync.sync import Syncer  # noqa: E402
+from rm2md.config import Config, load  # noqa: E402
+from rm2md.sync import Syncer  # noqa: E402
 
 OUT = HERE / "images"
 CSS = """
@@ -57,7 +57,7 @@ def trim(img: Image.Image, pad: int = 40) -> Image.Image:
 
 
 def md_to_html(md: str, work: Path) -> str:
-    """Just enough Markdown for one rmsync note: front matter, headings, lists, tasks, Mermaid."""
+    """Just enough Markdown for one rm2md note: front matter, headings, lists, tasks, Mermaid."""
     front, _, body = md.partition("\n---\n")
     meta = "\n".join(front.strip("-\n").splitlines())
     body = re.sub(r"<!--.*?-->\n?", "", body)
@@ -138,7 +138,7 @@ def from_note(note: Path) -> tuple[Path, Path, str]:
 
 def main() -> None:
     OUT.mkdir(exist_ok=True)
-    work = Path(tempfile.mkdtemp(prefix="rmsync-demo-"))
+    work = Path(tempfile.mkdtemp(prefix="rm2md-demo-"))
     if len(sys.argv) == 3 and sys.argv[1] == "--note":
         note, page_png, task_filter = from_note(Path(sys.argv[2]).expanduser())
     else:

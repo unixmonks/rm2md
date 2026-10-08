@@ -9,18 +9,18 @@ sys.path.insert(0, str(Path(__file__).parent))
 from conftest import MockOcr  # noqa: E402
 from fakexochitl import FakeXochitl  # noqa: E402
 
-from rmsync.config import Config  # noqa: E402
-from rmsync.ocr import transcribe  # noqa: E402
-from rmsync.sync import Syncer  # noqa: E402
-from rmsync.tablet import Tablet  # noqa: E402
+from rm2md.config import Config  # noqa: E402
+from rm2md.ocr import transcribe  # noqa: E402
+from rm2md.sync import Syncer  # noqa: E402
+from rm2md.tablet import Tablet  # noqa: E402
 
 name, port, work = sys.argv[1], sys.argv[2], Path(sys.argv[3])
 X = "/home/root/.local/share/remarkable/xochitl"
 
 P1 = [("h", "Groceries and errands"), ("task", "buy oat milk #shopping", False), ("task", "pick up the dry cleaning", False),
       ("task", "pay electric bill due fri", True), ("t", "remember: farmers market sat")]
-P2 = [("h", "Ideas"), ("t", "rmsync could watch the folder"), ("t", "- use a cron job instead"),
-      ("task", "write README @rmsync", False)]
+P2 = [("h", "Ideas"), ("t", "rm2md could watch the folder"), ("t", "- use a cron job instead"),
+      ("task", "write README @rm2md", False)]
 
 x = FakeXochitl(work / "xochitl")
 inbox = x.folder("Inbox")
@@ -39,7 +39,7 @@ cfg = Config(host="root@127.0.0.1", ssh_options=opts, folder="Inbox", notes_dir=
              state_dir=work / "state", cache_dir=work / "cache")
 
 print("check:", Tablet(cfg.host, cfg.xochitl_dir, opts).check())
-live = os.environ.get("RMSYNC_LIVE") == "1"
+live = os.environ.get("RM2MD_LIVE") == "1"
 ocr = MockOcr()
 for k, v in {("Errands", 1): P1, ("Errands", 3): P2, ("Week 41", 1): P2}.items():
     ocr.pages[k] = v

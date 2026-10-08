@@ -1,11 +1,11 @@
 #!/bin/sh
 # End-to-end over real SSH: an Alpine container (busybox sh + tar, dropbear sshd, like the tablet)
-# holding a fake xochitl folder. rmsync syncs it with the mock OCR, then once with the live API
-# if RMSYNC_LIVE=1. Needs docker.
+# holding a fake xochitl folder. rm2md syncs it with the mock OCR, then once with the live API
+# if RM2MD_LIVE=1. Needs docker.
 set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 W=$(mktemp -d)
-NAME=rmsync-fake-tablet-$$
+NAME=rm2md-fake-tablet-$$
 trap 'docker rm -f "$NAME" >/dev/null 2>&1; rm -rf "$W"' EXIT
 ssh-keygen -q -t ed25519 -N "" -f "$W/key"
 docker run -d --name "$NAME" -p 127.0.0.1::22 alpine:3.20 sh -c \

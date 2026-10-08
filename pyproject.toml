@@ -1,5 +1,5 @@
 [project]
-name = "rmsync"
+name = "rm2md"
 version = "0.1.0"
 description = "Sync a reMarkable folder to Markdown notes and Taskwarrior tasks over SSH"
 readme = "README.md"
@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-rmsync = "rmsync:main"
+rm2md = "rm2md:main"
 
 [build-system]
 requires = ["uv_build>=0.10.4,<0.11.0"]

@@ -1,14 +1,17 @@
-# rmsync
+# rm2md
 
-Write on your reMarkable. rmsync turns the pages into Markdown notes and the to-dos into
+Write on your reMarkable. rm2md turns the pages into Markdown notes and the to-dos into
 [Taskwarrior](https://taskwarrior.org) tasks.
 
-![A handwritten reMarkable page and the Markdown note rmsync made from it](docs/images/before-after.png)
+Sponsored by **[Margin](https://marginpaper.com)**, which makes hyperlinked PDF planners, journals
+and templates for reMarkable and other e-ink tablets.
 
-*Left: a page from the tablet. Right: the note rmsync wrote, shown as GitHub renders it, with the
+![A handwritten reMarkable page and the Markdown note rm2md made from it](docs/images/before-after.png)
+
+*Left: a page from the tablet. Right: the note rm2md wrote, shown as GitHub renders it, with the
 sketch turned into a diagram ([raw Markdown](docs/images/after.md)).*
 
-rmsync syncs one folder of notebooks from the tablet over SSH (Wi-Fi or USB). A vision model reads
+rm2md syncs one folder of notebooks from the tablet over SSH (Wi-Fi or USB). A vision model reads
 the handwriting through [OpenRouter](https://openrouter.ai), and each notebook becomes one Markdown
 file. The same page also gave these tasks:
 
@@ -37,7 +40,7 @@ sync completes it in Taskwarrior.
   one-line description.
 - **Cheap.** About $0.002 a page with the default model. Only pages that changed are sent, and
   typed (keyboard) text is read straight from the file at no cost.
-- **Safe with your tasks.** rmsync only adds tasks and completes them. It never edits or deletes
+- **Safe with your tasks.** rm2md only adds tasks and completes them. It never edits or deletes
   one, and a task you delete in Taskwarrior is not created again.
 
 ## Writing on the tablet
@@ -61,7 +64,7 @@ due Friday. A task counts as done only when its own line is crossed out or its o
 `*`, `•` and `-` bullets are never boxes.
 
 For a **diagram**, draw boxes, diamonds or circles with words in them and connect them with arrows.
-Words on an arrow become its label. rmsync keeps the direction you drew (top-down or left-to-right).
+Words on an arrow become its label. rm2md keeps the direction you drew (top-down or left-to-right).
 Words inside shapes never become tasks.
 
 The tablet saves a page when you close its notebook. Close it, or go back to the library, before
@@ -86,16 +89,16 @@ You need:
    ```sh
    ssh root@10.11.99.1 rm-ssh-over-wlan on
    ```
-3. **Install your SSH key.** Run `ssh-copy-id root@<tablet-ip>`. rmsync never types a password, so
+3. **Install your SSH key.** Run `ssh-copy-id root@<tablet-ip>`. rm2md never types a password, so
    the key needs no passphrase, or must be loaded in ssh-agent.
-4. **Install and configure rmsync:**
+4. **Install and configure rm2md:**
    ```sh
-   uv tool install git+https://github.com/unixmonks/rmsync
-   mkdir -p ~/.config/rmsync && (umask 077; cat > ~/.config/rmsync/openrouter_key)   # paste the key, then Ctrl-D
-   rmsync init --host root@<tablet-ip> --folder "Notes"   # writes the config and tests the connection
-   rmsync folders                                          # lists the folders, if unsure of the name
-   rmsync sync -n                                          # preview: reads the pages, writes nothing
-   rmsync sync
+   uv tool install git+https://github.com/unixmonks/rm2md
+   mkdir -p ~/.config/rm2md && (umask 077; cat > ~/.config/rm2md/openrouter_key)   # paste the key, then Ctrl-D
+   rm2md init --host root@<tablet-ip> --folder "Notes"   # writes the config and tests the connection
+   rm2md folders                                          # lists the folders, if unsure of the name
+   rm2md sync -n                                          # preview: reads the pages, writes nothing
+   rm2md sync
    ```
    The key can also come from `$OPENROUTER_API_KEY`.
 
@@ -106,26 +109,26 @@ Give the tablet a fixed address in your router (a DHCP reservation), so `host` s
 Every hour with cron (`crontab -e`):
 
 ```
-20 * * * * $HOME/.local/bin/rmsync sync -q >> $HOME/.local/state/rmsync/cron.log 2>&1
+20 * * * * $HOME/.local/bin/rm2md sync -q >> $HOME/.local/state/rm2md/cron.log 2>&1
 ```
 
-Or keep `rmsync watch` running, which syncs every five minutes. Both stay quiet while the tablet
+Or keep `rm2md watch` running, which syncs every five minutes. Both stay quiet while the tablet
 is asleep or away, and catch up when it is back.
 
 ## Commands
 
 ```
-rmsync init [--host H] [--folder F] [--notes-dir D] [--force]   write the config, test it
-rmsync check                    test the connection and the folder
-rmsync folders                  list the tablet's folders, with notebook counts
-rmsync sync                     sync once
+rm2md init [--host H] [--folder F] [--notes-dir D] [--force]   write the config, test it
+rm2md check                    test the connection and the folder
+rm2md folders                  list the tablet's folders, with notebook counts
+rm2md sync                     sync once
        -n, --dry-run            show what would change, write nothing
        --notebook NAME          only this notebook
        --retranscribe           read every page again (after changing the model)
        --no-tasks               notes only
        -q, --quiet              print only changes and errors
-rmsync watch [--interval S]     sync every S seconds (default 300)
-rmsync status                   notebooks, pages and tasks synced so far
+rm2md watch [--interval S]     sync every S seconds (default 300)
+rm2md status                   notebooks, pages and tasks synced so far
 ```
 
 `sync` exits 0 when all went well, 1 when a page could not be read (it is retried next time) or
@@ -133,7 +136,7 @@ the folder is wrong, and 2 when the tablet cannot be reached.
 
 ## Configuration
 
-`~/.config/rmsync/config.toml`, written by `rmsync init`:
+`~/.config/rm2md/config.toml`, written by `rm2md init`:
 
 | setting       | default                    | what it does                                        |
 |---------------|----------------------------|-----------------------------------------------------|
@@ -163,8 +166,8 @@ Each note is rewritten on every sync, so edit on the tablet, not in the file. Re
 notebook on the tablet moves its note. A notebook taken out of the folder keeps its note. PDFs and
 EPUBs are skipped.
 
-rmsync keeps its records in `~/.local/state/rmsync/` and a copy of the synced notebooks in
-`~/.cache/rmsync/`.
+rm2md keeps its records in `~/.local/state/rm2md/` and a copy of the synced notebooks in
+`~/.cache/rm2md/`.
 
 ## Troubleshooting
 
@@ -182,6 +185,6 @@ rmsync keeps its records in `~/.local/state/rmsync/` and a copy of the synced no
 ```sh
 uv run pytest                            # unit tests, plus full syncs against a fake tablet folder and the real `task`
 tests/fake_tablet_ssh.sh                 # sync over real SSH from a busybox/dropbear container (needs Docker)
-RMSYNC_LIVE=1 tests/fake_tablet_ssh.sh   # the same with the live model, on generated handwriting
+RM2MD_LIVE=1 tests/fake_tablet_ssh.sh   # the same with the live model, on generated handwriting
 uv run python docs/make_images.py        # rebuild the pictures above from a demo page
 ```

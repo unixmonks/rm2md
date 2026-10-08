@@ -11,7 +11,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
 
-API_URL = os.environ.get("RMSYNC_API_URL", "https://openrouter.ai/api/v1/chat/completions")
+API_URL = os.environ.get("RM2MD_API_URL", "https://openrouter.ai/api/v1/chat/completions")
 # Part of the transcription cache key: bump when the prompt changes what comes back.
 PROMPT_VERSION = 4
 
@@ -206,7 +206,7 @@ def _chat(body: dict, api_key: str, retries: int = 3, timeout: int = 120) -> str
     for attempt in range(retries):
         req = urllib.request.Request(API_URL, data=req_data, method="POST", headers={
             "Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
-            "X-Title": "rmsync",
+            "X-Title": "rm2md",
         })
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:

@@ -3,7 +3,7 @@ import subprocess
 
 from conftest import FIXTURES
 
-from rmsync.sync import Syncer
+from rm2md.sync import Syncer
 
 P1 = [("h", "Project Falcon"), ("t", "met with Dana"), ("task", "email Dana the slides", False),
       ("task", "book flights #work", False), ("task", "renew passport", True)]
@@ -157,7 +157,7 @@ def test_task_failure_keeps_transcription_and_retries(env, monkeypatch):
     x, cfg, ocr, tmp = env
     setup_inbox(x, ocr)
     monkeypatch.setenv("TASKRC", str(tmp / "missing" / "rc"))
-    import rmsync.tasks as t
+    import rm2md.tasks as t
     real = t._task
     monkeypatch.setattr(t, "_task", lambda *a, **k: (_ for _ in ()).throw(t.TaskError("boom")))
     run(cfg, ocr)
@@ -169,7 +169,7 @@ def test_task_failure_keeps_transcription_and_retries(env, monkeypatch):
 
 
 def test_broken_diagram_is_repaired_once_and_cached(env):
-    from rmsync.ocr import PageText
+    from rm2md.ocr import PageText
     x, cfg, ocr, tmp = env
     inbox = x.folder("Inbox")
     x.notebook("Flow", inbox, [[("t", "a diagram")]])

@@ -2,7 +2,7 @@ import shutil
 
 import pytest
 
-from rmsync import mermaid
+from rm2md import mermaid
 
 GOOD = 'flowchart TD\n  A["write code"] --> B{"pass?"}\n  B -->|"yes"| C(("deploy"))'
 HAS_MMDC = shutil.which("mmdc") is not None

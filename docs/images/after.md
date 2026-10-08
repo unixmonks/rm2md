@@ -6,7 +6,7 @@ modified: 2026-10-07T21:34:57-07:00
 pages: 1
 tags: [remarkable]
 ---
-<!-- Written by rmsync from the reMarkable notebook. Edits here are overwritten on the next sync. -->
+<!-- Written by rm2md from the reMarkable notebook. Edits here are overwritten on the next sync. -->
 
 # Notebook 10
 

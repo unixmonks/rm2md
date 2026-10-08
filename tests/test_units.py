@@ -3,12 +3,12 @@ import datetime as dt
 import pytest
 from conftest import FIXTURES
 
-from rmsync import library, notes
-from rmsync.ocr import parse_reply
-from rmsync.render import render
-from rmsync.sync import similar, typed_tasks
-from rmsync.tasks import to_json
-from rmsync.ocr import TaskItem
+from rm2md import library, notes
+from rm2md.ocr import parse_reply
+from rm2md.render import render
+from rm2md.sync import similar, typed_tasks
+from rm2md.tasks import to_json
+from rm2md.ocr import TaskItem
 
 
 def meta_tree():

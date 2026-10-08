@@ -1,4 +1,4 @@
-"""Settings, read from ~/.config/rmsync/config.toml (override with RMSYNC_CONFIG)."""
+"""Settings, read from ~/.config/rm2md/config.toml (override with RM2MD_CONFIG)."""
 from __future__ import annotations
 
 import os
@@ -11,10 +11,10 @@ def _xdg(var: str, default: str) -> Path:
     return Path(os.environ.get(var) or Path.home() / default)
 
 
-CONFIG_PATH = Path(os.environ.get("RMSYNC_CONFIG") or _xdg("XDG_CONFIG_HOME", ".config") / "rmsync" / "config.toml")
+CONFIG_PATH = Path(os.environ.get("RM2MD_CONFIG") or _xdg("XDG_CONFIG_HOME", ".config") / "rm2md" / "config.toml")
 
 TEMPLATE = """\
-# rmsync settings. See README.md.
+# rm2md settings. See README.md.
 
 # The tablet over SSH. Wi-Fi IP from Settings > Help > Copyrights and licenses,
 # or root@10.11.99.1 over USB.
@@ -60,14 +60,14 @@ class Config:
     page_images: bool = True
     model: str = "google/gemini-3.8-flash"
     reasoning: str = "low"
-    api_key_file: Path = _xdg("XDG_CONFIG_HOME", ".config") / "rmsync" / "openrouter_key"
+    api_key_file: Path = _xdg("XDG_CONFIG_HOME", ".config") / "rm2md" / "openrouter_key"
     tasks: bool = True
     task_tags: list[str] = field(default_factory=lambda: ["remarkable"])
     task_project: str = ""
     task_sync: bool = False
     xochitl_dir: str = "/home/root/.local/share/remarkable/xochitl"
-    state_dir: Path = _xdg("XDG_STATE_HOME", ".local/state") / "rmsync"
-    cache_dir: Path = _xdg("XDG_CACHE_HOME", ".cache") / "rmsync"
+    state_dir: Path = _xdg("XDG_STATE_HOME", ".local/state") / "rm2md"
+    cache_dir: Path = _xdg("XDG_CACHE_HOME", ".cache") / "rm2md"
 
     def api_key(self) -> str | None:
         if key := os.environ.get("OPENROUTER_API_KEY"):
