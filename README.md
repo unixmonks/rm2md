@@ -9,6 +9,8 @@ Sponsored by:
   reMarkable and other e-ink tablets.
 - **[taskwarriorsync](https://taskwarriorsync.com)**: hosted sync for Taskwarrior 3, with your tasks
   encrypted on your machine before upload.
+- **[Talisim](https://talisim.com)**: travel eSIMs for 202 countries and territories, installed by
+  QR code before you fly.
 
 ![A handwritten reMarkable page and the Markdown note rm2md made from it](docs/images/before-after.png)
 
